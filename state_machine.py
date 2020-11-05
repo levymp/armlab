@@ -77,6 +77,9 @@ class StateMachine():
         if self.next_state == "manual":
             self.manual()
 
+        if self.next_state == "append_state":
+            self.save_state()
+
 
     """Functions run for each state"""
 
@@ -156,6 +159,16 @@ class StateMachine():
             self.status_message = "State: Failed to initialize the rxarm!"
             rospy.sleep(5)
         self.next_state = "idle"
+
+def save_state(self):
+    print(self.rxarm.JointState.tolist())
+    self.next_state = "idle"
+    # wait till flag happens
+
+def reset_waypoints(self):
+    self.waypoints = []
+    self.next_state = "idle"
+
 
 class StateMachineThread(QThread):
     """!

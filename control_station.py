@@ -100,6 +100,17 @@ class Gui(QMainWindow):
         self.ui.btnUser4.setText('Execute')
         self.ui.btnUser4.clicked.connect(partial(nxt_if_arm_init, 'execute'))
         
+        # teach
+        self.ui.btnUser5.setText('Save State')
+        # append state to waypoints list
+        self.ui.btnuser5.clicked.connect(lambda : self.sm.set_next_state('append_state'))
+
+        # Clear Waypoints
+        self.ui.btnUser6.setText('Reset Waypoints')
+        # append state to waypoints list
+        self.ui.btnuser6.clicked.connect(lambda : self.sm.reset_waypoints())
+
+
         # Sliders
         for sldr in self.joint_sliders:
             sldr.valueChanged.connect(self.sliderChange)

@@ -89,7 +89,7 @@ class StateMachine():
         # print state
         tmp = self.rxarm.get_positions()
         print("NEW STATE: " + str(tmp.tolist())
-        self.status_message = 'APPENDING NEW STATE'
+        # self.status_message = 'APPENDING NEW STATE'
         # save state
         self.waypoints.append(tmp.tolist())
         # set new state
@@ -98,7 +98,7 @@ class StateMachine():
 
     def reset_waypoints(self):
         print('RESETING WAYPOINTS!')
-        self.status_message = 'RESETING WAYPOINTS!'
+        # self.status_message = 'RESETING WAYPOINTS!'
         self.waypoints = []
         self.next_state = "idle"
 

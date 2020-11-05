@@ -86,9 +86,12 @@ class StateMachine():
 
 
     def save_state(self):
-        print(self.rxarm.JointState.tolist())
+        # print state
+        print("NEW STATE: " + str(self.rxarm.get_positions.tolist()))
+        # save state
+        self.waypoints.append(self.rxarm.get_positions.tolist())
+        # set new state
         self.next_state = "idle"
-        # wait till flag happens
 
 
     def reset_waypoints(self):

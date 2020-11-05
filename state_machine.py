@@ -38,6 +38,18 @@ class StateMachine():
             [np.pi/2,         0.5,     0.3,      0.0,     0.0],
             [0.0,             0.0,     0.0,      0.0,     0.0]]
 
+
+def save_state(self):
+    print(self.rxarm.JointState.tolist())
+    self.next_state = "idle"
+    # wait till flag happens
+
+
+def reset_waypoints(self):
+    self.waypoints = []
+    self.next_state = "idle"
+
+
     def set_next_state(self, state):
         """!
         @brief      Sets the next state.
@@ -159,15 +171,6 @@ class StateMachine():
             self.status_message = "State: Failed to initialize the rxarm!"
             rospy.sleep(5)
         self.next_state = "idle"
-
-def save_state(self):
-    print(self.rxarm.JointState.tolist())
-    self.next_state = "idle"
-    # wait till flag happens
-
-def reset_waypoints(self):
-    self.waypoints = []
-    self.next_state = "idle"
 
 
 class StateMachineThread(QThread):

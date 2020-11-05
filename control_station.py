@@ -101,14 +101,20 @@ class Gui(QMainWindow):
         self.ui.btnUser4.clicked.connect(partial(nxt_if_arm_init, 'execute'))
         
         # teach
-        self.ui.btnUser5.setText('Save State')
+        self.ui.btnUser5.setText('Save State Open')
         # append state to waypoints list
-        self.ui.btnUser5.clicked.connect(lambda : self.sm.set_next_state('append_state'))
+        self.ui.btnUser5.clicked.connect(lambda : self.sm.set_next_state('append_state_open'))
+
+        # teach
+        self.ui.btnUser6.setText('Save State Closed')
+        # append state to waypoints list
+        self.ui.btnUser6.clicked.connect(lambda : self.sm.set_next_state('append_state_closed'))
+
 
         # Clear Waypoints
-        self.ui.btnUser6.setText('Reset Waypoints')
+        self.ui.btnUser7.setText('Reset Waypoints')
         # append state to waypoints list
-        self.ui.btnUser6.clicked.connect(lambda : self.sm.reset_waypoints())
+        self.ui.btnUser7.clicked.connect(lambda : self.sm.reset_waypoints())
 
 
         # Sliders

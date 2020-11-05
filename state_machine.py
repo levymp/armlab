@@ -26,17 +26,9 @@ class StateMachine():
         self.status_message = "State: Idle"
         self.current_state = "idle"
         self.next_state = "idle"
-        self.waypoints = [
-            [-np.pi/2,       -0.5,      -0.3,            0.0,       0.0],
-            [0.75*-np.pi/2,   0.5,      0.3,      0.0,       np.pi/2],
-            [0.5*-np.pi/2,   -0.5,     -0.3,     np.pi / 2,     0.0],
-            [0.25*-np.pi/2,   0.5,     0.3,     0.0,       np.pi/2],
-            [0.0,             0.0,      0.0,         0.0,     0.0],
-            [0.25*np.pi/2,   -0.5,      -0.3,      0.0,       np.pi/2],
-            [0.5*np.pi/2,     0.5,     0.3,     np.pi / 2,     0.0],
-            [0.75*np.pi/2,   -0.5,     -0.3,     0.0,       np.pi/2],
-            [np.pi/2,         0.5,     0.3,      0.0,     0.0],
-            [0.0,             0.0,     0.0,      0.0,     0.0]]
+        self.waypoints = []
+
+        self.gripper_waypoints = []
 
 
     def set_next_state(self, state):
@@ -78,20 +70,29 @@ class StateMachine():
         if self.next_state == "manual":
             self.manual()
 
-        if self.next_state == "append_state":
-            self.save_state()
+        if self.next_state == "append_state_open":
+            self.save_state(True)
+            
+        if self.next_state == "append_state_closed":
+            self.save_state(False)
 
 
     """Functions run for each state"""
 
 
-    def save_state(self):
-        # print state
+    def save_state(self, gripper_open):
+        # get joint state
         tmp = self.rxarm.get_positions()
         print("NEW STATE: " + str(tmp.tolist()))
+
+        # status message
         self.status_message = 'APPENDING NEW STATE'
+        
         # save state
         self.waypoints.append(tmp.tolist())
+        # save gripper state
+        self.gripper_waypoints.append(gripper_open)
+        
         # set new state
         self.next_state = "idle"
 
@@ -135,16 +136,20 @@ class StateMachine():
         # go through each joint position in waypoints
         # check current state
         if self.current_state != "estop":
-            for joint_positions in self.waypoints:
+            for joint_positions, gripper_open in zip(self.waypoints, self.gripper_waypoints):
                 # execute to next state
                 print('moving to: ' + str(joint_positions))
-
+                print('gripper state: ' + str(gripper_open))
                 # check for estop state change
                 if self.current_state == "estop":
                     # call disable torque
                     self.rxarm.disable_torque()
                 # move joints
                 self.rxarm.set_joint_positions(joint_positions, moving_time=2.0, accel_time=0.5, blocking=True)
+                if gripper_open:
+                    self.rxarm.open_gripper()
+                else:
+                    self.rxarm.close_gripper()
         else:
             self.rxarm.disable_torque()
         

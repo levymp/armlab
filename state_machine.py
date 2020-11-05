@@ -39,17 +39,6 @@ class StateMachine():
             [0.0,             0.0,     0.0,      0.0,     0.0]]
 
 
-def save_state(self):
-    print(self.rxarm.JointState.tolist())
-    self.next_state = "idle"
-    # wait till flag happens
-
-
-def reset_waypoints(self):
-    self.waypoints = []
-    self.next_state = "idle"
-
-
     def set_next_state(self, state):
         """!
         @brief      Sets the next state.
@@ -94,6 +83,18 @@ def reset_waypoints(self):
 
 
     """Functions run for each state"""
+
+
+    def save_state(self):
+        print(self.rxarm.JointState.tolist())
+        self.next_state = "idle"
+        # wait till flag happens
+
+
+    def reset_waypoints(self):
+        self.waypoints = []
+        self.next_state = "idle"
+
 
     def manual(self):
         """!

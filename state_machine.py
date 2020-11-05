@@ -153,16 +153,15 @@ class StateMachine():
         # go through each joint position in waypoints
         # check current state and waypoints are not empty
         if self.current_state != "estop" and self.waypoints and self.gripper_waypoints:
-            
+
             # previous gripper state
             prev_gripper_open = self.gripper_waypoints[0]
-            
+
             # initialize gripper
             if prev_gripper_open:
                 self.rxarm.open_gripper()
             else:
                 self.rxarm.close_gripper()
-
 
             for joint_positions, gripper_open in zip(self.waypoints, self.gripper_waypoints):
                 # execute to next state
@@ -173,10 +172,9 @@ class StateMachine():
                 if self.current_state == "estop":
                     # call disable torque
                     self.rxarm.disable_torque()
-                
-                # move joints
-                self.rxarm.set_joint_positions(joint_positions, moving_time=1.5, accel_time=0.5, blocking=True)
-                
+
+                self.rxarm.set_positions(joint_positions)
+
                 # check if we have changed gripper state
                 if prev_gripper_open != gripper_open:
                     # change gripper state to new state
@@ -184,7 +182,7 @@ class StateMachine():
                         self.rxarm.open_gripper()
                     else:
                         self.rxarm.close_gripper()
-                
+
                 # overwrite old gripper open bool
                 prev_gripper_open = gripper_open
         elif self.current_state == 'estop':
@@ -192,7 +190,7 @@ class StateMachine():
             self.rxarm.disable_torque()
         else:
             self.next_state = 'idle'
-        
+
         # set state to idle
         self.next_state = "idle"
 

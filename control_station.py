@@ -110,7 +110,6 @@ class Gui(QMainWindow):
         # append state to waypoints list
         self.ui.btnUser6.clicked.connect(lambda : self.sm.set_next_state('append_state_closed'))
 
-
         # Clear Waypoints
         self.ui.btnUser7.setText('Reset Waypoints')
         # append state to waypoints list

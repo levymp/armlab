@@ -109,6 +109,8 @@ class RXArm(InterbotixRobot):
         self.enable_torque()
         self.moving_time = 2.0
         self.accel_time = 0.5
+        self.angular_v = np.pi/2
+        self.accel_percent = 0.15
         self.set_gripper_pressure(1.0)
         self.go_to_home_pose(moving_time = self.moving_time, accel_time = self.accel_time, blocking=False)
         self.open_gripper()
@@ -129,12 +131,38 @@ class RXArm(InterbotixRobot):
 
          @param      joint_angles  The joint angles
          """
+
+        # calculate all angle differences
+        differences = [abs(future_angle - current_angle) for current_angle, future_angle in zip(self.position_fb.tolist(), joint_positions)]
+
+        # calculate max difference
+        max_dif = max(differences)
+
+        # set moving time
+        self.moving_time = max_dif/self.angular_v
+
+        # set acceleration time
+        self.accel_time = self.moving_time * self.accel_percent
+
+        # set joint positions
         self.set_joint_positions(joint_positions, moving_time=self.moving_time, accel_time=self.accel_time, blocking=False)
 
+    def set_angular_v(self, angular_v):
+        """!
+        @brief      Set angular velocity
+        """
+        self.angular_v = angular_v
+
     def set_moving_time(self, moving_time):
+        """!
+        @brief      Set moving_time.
+        """
         self.moving_time = moving_time
 
     def set_accel_time(self, accel_time):
+        """!
+        @brief      sets acceleration time
+        """
         self.accel_time = accel_time
 
     def disable_torque(self):

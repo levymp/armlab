@@ -87,9 +87,9 @@ class StateMachine():
 
     def save_state(self):
         # print state
-        print("NEW STATE: " + str(self.rxarm.get_positions.tolist()))
+        print("NEW STATE: " + str(self.rxarm.get_positions))
         # save state
-        self.waypoints.append(self.rxarm.get_positions.tolist())
+        self.waypoints.append(self.rxarm.get_positions)
         # set new state
         self.next_state = "idle"
 

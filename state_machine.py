@@ -109,6 +109,23 @@ class StateMachine():
               Make sure you respect estop signal
         """
         self.status_message = "State: Execute - Executing motion plan"
+        # go through each joint position in waypoints
+        # check current state
+        if self.current_state != "estop":
+            for joint_positions in self.waypoints:
+                # execute to next state
+                print('moving to: ' + str(joint_positions))
+
+                # check for estop state change
+                if self.current_state == "estop":
+                    # call disable torque
+                    self.rxarm.disable_torque()
+                # move joints
+                self.rxarm.set_joint_positions(joint_positions, moving_time=2.0, accel_time=0.5, blocking=True)
+        else:
+            self.rxarm.disable_torque()
+        
+        # set state to idle
         self.next_state = "idle"
 
     def calibrate(self):

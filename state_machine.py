@@ -5,6 +5,7 @@ from PyQt4.QtCore import (QThread, Qt, pyqtSignal, pyqtSlot, QTimer)
 import time
 import numpy as np
 import rospy
+from dance import dance_waypoints, dance_gripper
 
 class StateMachine():
     """!
@@ -111,6 +112,14 @@ class StateMachine():
         print('GRIPPER WAYPOINTS:')
         print(str(self.gripper_waypoints))
         self.next_state = "idle"
+
+    def dance(self):
+        # overwrite waypoints to dance waypoints
+        self.waypoints = dance_waypoints
+        self.gripper_waypoints = dance_gripper
+        # execute dance
+        self.next_state = 'execute'
+
 
     def manual(self):
         """!

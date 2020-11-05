@@ -120,6 +120,10 @@ class Gui(QMainWindow):
         self.ui.btnUser8.setText('Print Waypoints')
         self.ui.btnUser8.clicked.connect(lambda : self.sm.print_waypoints())
 
+        # Dance 
+        self.ui.btnUser9.setText('DANCE! 🕺🏻')
+        self.ui.btnUser9.clicked.connect(lambda : self.sm.dance())
+
 
         # Sliders
         for sldr in self.joint_sliders:

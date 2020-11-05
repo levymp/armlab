@@ -120,7 +120,6 @@ class StateMachine():
         # execute dance
         self.next_state = 'execute'
 
-
     def manual(self):
         """!
         @brief      Manually control the rxarm

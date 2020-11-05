@@ -179,7 +179,7 @@ class StateMachine():
                 
                 # overwrite old gripper open bool
                 prev_gripper_open = gripper_open
-        elif current_state == 'estop':
+        elif self.current_state == 'estop':
             # disable torque as estop has occured
             self.rxarm.disable_torque()
         else:

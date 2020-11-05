@@ -116,6 +116,10 @@ class Gui(QMainWindow):
         # append state to waypoints list
         self.ui.btnUser7.clicked.connect(lambda : self.sm.reset_waypoints())
 
+        # Print Waypoints
+        self.ui.btnUser8.setText('Print Waypoints')
+        self.ui.btnUser8.clicked.connect(lambda : self.sm.print_waypoints())
+
 
         # Sliders
         for sldr in self.joint_sliders:

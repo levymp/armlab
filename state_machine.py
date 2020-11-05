@@ -100,9 +100,17 @@ class StateMachine():
     def reset_waypoints(self):
         print('RESETING WAYPOINTS!')
         self.status_message = 'RESETING WAYPOINTS!'
+        # Rest joint waypoints and gripper waypoints
         self.waypoints = []
+        self.gripper_waypoints = []
         self.next_state = "idle"
 
+    def print_waypoints(self):
+        print('JOINT WAYPOINTS:')
+        print(str(self.waypoints))
+        print('GRIPPER WAYPOINTS:')
+        print(str(self.gripper_waypoints))
+        self.next_state = "idle"
 
     def manual(self):
         """!
@@ -133,25 +141,49 @@ class StateMachine():
               Make sure you respect estop signal
         """
         self.status_message = "State: Execute - Executing motion plan"
+        
         # go through each joint position in waypoints
-        # check current state
-        if self.current_state != "estop":
+        # check current state and waypoints are not empty
+        if self.current_state != "estop" and self.waypoints and self.gripper_waypoints:
+            
+            # previous gripper state
+            prev_gripper_open = self.gripper_waypoints[0]
+            
+            # initialize gripper
+            if prev_gripper_open:
+                self.rxarm.open_gripper()
+            else:
+                self.rxarm.close_gripper()
+
+
             for joint_positions, gripper_open in zip(self.waypoints, self.gripper_waypoints):
                 # execute to next state
                 print('moving to: ' + str(joint_positions))
                 print('gripper state: ' + str(gripper_open))
+
                 # check for estop state change
                 if self.current_state == "estop":
                     # call disable torque
                     self.rxarm.disable_torque()
+                
                 # move joints
-                self.rxarm.set_joint_positions(joint_positions, moving_time=2.0, accel_time=0.5, blocking=True)
-                if gripper_open:
-                    self.rxarm.open_gripper()
-                else:
-                    self.rxarm.close_gripper()
-        else:
+                self.rxarm.set_joint_positions(joint_positions, moving_time=1.5, accel_time=0.5, blocking=True)
+                
+                # check if we have changed gripper state
+                if prev_gripper_open != gripper_open:
+                    # change gripper state to new state
+                    if gripper_open:
+                        self.rxarm.open_gripper()
+                    else:
+                        self.rxarm.close_gripper()
+                
+                # overwrite old gripper open bool
+                prev_gripper_open = gripper_open
+        elif current_state == 'estop':
+            # disable torque as estop has occured
             self.rxarm.disable_torque()
+        else:
+            self.next_state = 'idle'
         
         # set state to idle
         self.next_state = "idle"

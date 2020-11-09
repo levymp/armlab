@@ -8,7 +8,7 @@ There are some functions to start with, you may need to implement a few more
 import numpy as np
 # expm is a matrix exponential function
 from scipy.linalg import expm
-import pandas as pd
+
 
 
 def clamp(angle):
@@ -45,11 +45,10 @@ def FK_dh(dh_params, joint_angles, link):
 
     @return     a transformation matrix representing the pose of the desired link
     """
-    dh = pd.read_csv('./config/rx200_dh.csv')
-    H_mat = np.zeros((4, 4))
+    H_mat = np.eye(4)
 
     for l in range(link):
-        H_mat = H_mat*get_transform_from_dh(dh[l].dh_a, dh[l].dh_alpha, dh[l].dh_d, joint_angles[l])
+        H_mat = H_mat*get_transform_from_dh(dh_params[l, 0], dh_params[l, 1], dh_params[l, 2], joint_angles[l] + dh_params[l,3])
 
     return H_mat
 
@@ -79,6 +78,7 @@ def get_transform_from_dh(a, alpha, d, theta):
 
     return transform_matrix
 
+
 def get_euler_angles_from_T(T):
     """!
     @brief      Gets the euler angles from a transformation matrix.
@@ -89,7 +89,7 @@ def get_euler_angles_from_T(T):
 
     @return     The euler angles from T.
     """
-    return [np.arccos(T[0,0]), np.arcsin(T[2,1]), 0]
+    return [np.arccos(T[0, 0]), np.arcsin(T[2, 1]), 0]
 
 
 def get_pose_from_T(T):
@@ -103,7 +103,12 @@ def get_pose_from_T(T):
 
     @return     The pose from T.
     """
-    pass
+    x = T[0, 3]
+    y = T[1, 3]
+    z = T[2, 3]
+    phi = np.arctan2(z, x)
+
+    return (x, y, z, phi)
 
 
 def FK_pox(joint_angles, m_mat, s_lst):
@@ -122,6 +127,7 @@ def FK_pox(joint_angles, m_mat, s_lst):
     """
     pass
 
+
 def to_s_matrix(w,v):
     """!
     @brief      Convert to s matrix.
@@ -135,6 +141,7 @@ def to_s_matrix(w,v):
     @return     { description_of_the_return_value }
     """
     pass
+
 
 def IK_geometric(dh_params, pose):
     """!

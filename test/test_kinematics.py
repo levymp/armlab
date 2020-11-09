@@ -25,7 +25,8 @@ if __name__ == '__main__':
     dh_params = parse_dh_param_file(args['dhconfig'])
 
     ### Add arm configurations to test here
-    fk_angles = [[0.0,           0.0,            0.0,               0.0]]
+    fk_angles = [[0.0,           0.0,            0.0,               0.0], 
+                [0.0,            1.57,           0.0,               -1.57]]
     
     print('Test FK')
     fk_poses = []

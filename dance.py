@@ -30,7 +30,7 @@ dance_sequence = [0, 0, 0, 1, 1, 1]
 dance_waypoints = []
 dance_gripper = []
 
-# create final dance 
+# create final dance
 for i in dance_sequence:
     # extend list
     dance_waypoints.extend(dances[i]['waypoints'])

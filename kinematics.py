@@ -8,6 +8,8 @@ There are some functions to start with, you may need to implement a few more
 import numpy as np
 # expm is a matrix exponential function
 from scipy.linalg import expm
+import pandas as pd
+
 
 def clamp(angle):
     """!
@@ -22,6 +24,7 @@ def clamp(angle):
     while angle <= -np.pi:
         angle += 2 * np.pi
     return angle
+
 
 def FK_dh(dh_params, joint_angles, link):
     """!
@@ -38,11 +41,18 @@ def FK_dh(dh_params, joint_angles, link):
     @param      dh_params     The dh parameters as a 2D list each row represents a link and has the format [a, alpha, d,
                               theta]
     @param      joint_angles  The joint angles of the links
-    @param      link          The link to transform from
+    @param      link          The link to transform from...
 
     @return     a transformation matrix representing the pose of the desired link
     """
-    pass
+    dh = pd.read_csv('./config/rx200_dh.csv')
+    H_mat = np.zeros((4, 4))
+
+    for l in range(link):
+        H_mat = H_mat*get_transform_from_dh(dh[l].dh_a, dh[l].dh_alpha, dh[l].dh_d, joint_angles[l])
+
+    return H_mat
+
 
 def get_transform_from_dh(a, alpha, d, theta):
     """!
@@ -57,7 +67,17 @@ def get_transform_from_dh(a, alpha, d, theta):
 
     @return     The 4x4 transform matrix.
     """
-    pass
+    st = np.sin(theta)
+    ct = np.cos(theta)
+    sa = np.sin(alpha)
+    ca = np.cos(alpha)
+
+    transform_matrix = np.matrix([[ct, -st*ca, st*sa, a*ct],
+                                 [st, ct*ca, -ct*sa, a*st],
+                                 [0, sa, ca, d],
+                                 [0, 0, 0, 1]])
+
+    return transform_matrix
 
 def get_euler_angles_from_T(T):
     """!
@@ -69,7 +89,8 @@ def get_euler_angles_from_T(T):
 
     @return     The euler angles from T.
     """
-    pass
+    return [np.arccos(T[0,0]), np.arcsin(T[2,1]), 0]
+
 
 def get_pose_from_T(T):
     """!

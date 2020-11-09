@@ -145,7 +145,7 @@ class RXArm(InterbotixRobot):
         self.accel_time = self.moving_time * self.accel_percent
 
         # set joint positions
-        self.set_joint_positions(joint_positions, moving_time=self.moving_time, accel_time=self.accel_time, blocking=False)
+        self.set_joint_positions(joint_positions, moving_time=self.moving_time, accel_time=self.accel_time, blocking=True)
 
     def set_angular_v(self, angular_v):
         """!

@@ -5,7 +5,11 @@ from PyQt4.QtCore import (QThread, Qt, pyqtSignal, pyqtSlot, QTimer)
 import time
 import numpy as np
 import rospy
+import subprocess
+import os
 from dance import dance_waypoints, dance_gripper
+
+
 
 class StateMachine():
     """!
@@ -152,7 +156,7 @@ class StateMachine():
         
         # go through each joint position in waypoints
         # check current state and waypoints are not empty
-        if self.current_state != "estop" and self.waypoints and self.gripper_waypoints:
+        if self.current_state != "estop" and self.waypoints and self.gripper_waypoints and self.rxarm.initialized:
 
             # previous gripper state
             prev_gripper_open = self.gripper_waypoints[0]
@@ -172,6 +176,7 @@ class StateMachine():
                 if self.current_state == "estop":
                     # call disable torque
                     self.rxarm.disable_torque()
+                    break
 
                 self.rxarm.set_positions(joint_positions)
 
@@ -185,12 +190,17 @@ class StateMachine():
 
                 # overwrite old gripper open bool
                 prev_gripper_open = gripper_open
+
         elif self.current_state == 'estop':
             # disable torque as estop has occured
+            print('ESTOP TRIGGERED!')
             self.rxarm.disable_torque()
-        else:
-            self.next_state = 'idle'
-
+        elif not self.waypoints or not self.gripper_waypoints:
+            # waypoints are empty and nothing to execute
+            print('WAYPOINTS ARE EMPTY!')
+        elif not self.rxarm.initialized:
+            # rxarm not initialized yet
+            print('RXARM NOT INITIALIZED!')
         # set state to idle
         self.next_state = "idle"
 
@@ -199,6 +209,9 @@ class StateMachine():
         @brief      Gets the user input to perform the calibration
         """
         self.current_state = "calibrate"
+        subprocess.call("rosrun camera_calibration cameracalibrator.py --size 8x6 --square 0.025 image:=/camera/color/image_raw camera:=/camera/color --no-service-check", shell=True)
+        #os.system("rosrun camera_calibration cameracalibrator.py --size 8x6 --square 0.025 image:=/camera/color/image_raw camera:=/camera/color --no-service-check")
+        self.current_state = "idle"
         self.next_state = "idle"
 
         """TODO Perform camera calibration routine here"""

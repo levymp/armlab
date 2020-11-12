@@ -13,7 +13,7 @@ You will upgrade some functions and also implement others according to the comme
 """
 import numpy as np
 from functools import partial
-from kinematics import FK_dh, FK_pox, get_pose_from_T
+from kinematics import FK_dh, FK_pox, get_pose_from_T, get_euler_angles_from_T
 import time
 import csv
 from builtins import super
@@ -23,6 +23,7 @@ from interbotix_descriptions import interbotix_mr_descriptions as mrd
 from config_parse import *
 from sensor_msgs.msg import JointState
 import rospy
+from copy import deepcopy
 
 """
 TODO: Implement the missing functions and add anything you need to support them
@@ -59,7 +60,7 @@ class RXArm(InterbotixRobot):
                     Joints.
 
         @param      dh_config_file  The configuration file that defines the DH parameters for the robot
-        """
+        """ 
         super().__init__(robot_name="rx200", mrd=mrd)
         self.joint_names =  self.resp.joint_names
         self.num_joints = 5
@@ -79,7 +80,7 @@ class RXArm(InterbotixRobot):
         self.dh_params = []
         self.dh_config_file = dh_config_file
         if(dh_config_file is not None):
-            self.dh_params = RXArm.parse_dh_param_file(dh_config_file)
+            self.dh_params = self.parse_dh_param_file()
         #POX params
         self.M_matrix = []
         self.S_list = []
@@ -92,7 +93,8 @@ class RXArm(InterbotixRobot):
 
         @return     True is succes False otherwise
         """
-        self.initialized = False
+        print('initialized RXARM VALUES!.....')
+        self.initialized = False   
         # Wait for other threads to finish with the RXArm instead of locking every single call
         rospy.sleep(0.25)
         
@@ -208,8 +210,15 @@ class RXArm(InterbotixRobot):
 
         @return     The EE pose as [x, y, z, phi] or as needed.
         """
-        return [0, 0, 0, 0]
+        T = FK_dh(deepcopy(self.dh_params), self.position_fb, 5)
+        position = get_pose_from_T(T)
+        angles = get_euler_angles_from_T(T)
+        res = []
+        res.extend(position)
+        res.extend(angles)
 
+        return res
+    
     @_ensure_initialized
     def get_wrist_pose(self):
         """!
@@ -217,6 +226,7 @@ class RXArm(InterbotixRobot):
 
         @return     The wrist pose as [x, y, z, phi] or as needed.
         """
+
         return [0, 0, 0, 0]
 
     def parse_pox_param_file(self):
@@ -229,7 +239,7 @@ class RXArm(InterbotixRobot):
 
     def parse_dh_param_file(self):
         print("Parsing DH config file...")
-        parse_dh_param_file(self.dh_config_file)
+        dh_params = parse_dh_param_file(self.dh_config_file)
         print("DH config file parse exit.")
         return dh_params
 

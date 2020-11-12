@@ -87,9 +87,12 @@ def get_euler_angles_from_T(T):
 
     @param      T     transformation matrix
 
+
     @return     The euler angles from T.
     """
-    return [np.arccos(T[0, 0]), np.arcsin(T[2, 1]), 0]
+    
+    # phi, theta, psi
+    return [np.arctan(T[2,1]/T[2,2]), np.arcsin(T[2,0]), np.arctan(T[1, 0]/T[0, 0])]
 
 
 def get_pose_from_T(T):
@@ -155,4 +158,44 @@ def IK_geometric(dh_params, pose):
     @return     All four possible joint configurations in a numpy array 4x4 where each row is one possible joint
                 configuration
     """
-    pass
+    x = pose[0]
+    y = pose[1]
+    z = pose[2]
+    phi = pose[3]
+    theta1_s1 = np.arctan2(y,x) # base rotation
+    theta1_s2 = clamp(np.pi + theta1_s1) # second solution to theta 1
+
+    end_link = dh_params[4,0]
+    k = np.linalg.norm([x,y]) # length along x-y
+    # ox = x - end_link*np.cos(phi)*np.cos(theta1)
+    # oy = y - end_link*np.cos(phi)*np.sin(theta1)
+    ok = k - end_link*np.cos(phi)
+    oz = z - end_link*np.sin(phi)
+
+    l2 = dh_params[1,0] # link 2 length
+    l3 = dh_params[2,0] # link 3 length
+
+    num = ok**2 + oz**2 - l2**2 - l3**2
+    den = 2*l2*l3
+    theta3_s1 = np.arccos(num/den)
+    theta3_s2 = -theta3_s1
+
+    alpha_s1 = np.arctan2(l3*np.sin(theta3_s1), l2 + l3*np.cos(theta3_s1))
+    alpha_s2 = np.arctan2(l3*np.sin(theta3_s2), l2 + l3*np.cos(theta3_s2))
+
+    theta2_s1 = np.arctan2(oz,ok) - alpha_s1
+    theta2_s2 = np.arctan2(oz,ok) - alpha_s2
+
+    t2 = dh_params[1,3]
+    t3 = dh_params[2,3]
+
+    theta4_s1 = phi - sum([theta1_s1, theta2_s1, theta3_s1])
+    theta4_s2 = phi - sum([theta1_s1, theta2_s1, theta3_s2])
+    theta4_s3 = phi - sum([theta1_s2, theta2_s2, theta3_s2])
+    theta4_s4 = phi - sum([theta1_s2, theta2_s2, theta3_s2])
+    solution_matrix = np.matrix([[theta1_s1, theta2_s1 - t2, theta3_s1 - t3, theta4_s1],
+                                 [theta1_s1, theta2_s1 - t2, theta3_s2 - t3, theta4_s2],
+                                 [theta1_s2, theta2_s2 - t2, theta3_s2 - t3, theta4_s3],
+                                 [theta1_s2, theta2_s2 - t2, theta3_s2 - t3, theta4_s4]])
+
+    return solution_matrix

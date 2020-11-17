@@ -109,7 +109,7 @@ def get_pose_from_T(T):
     x = T[0, 3]
     y = T[1, 3]
     z = T[2, 3]
-    phi = np.arctan2(z, x)
+    phi = np.arctan(T[2,1]/T[2,2])
 
     return (x, y, z, phi)
 
@@ -161,7 +161,7 @@ def IK_geometric(dh_params, pose):
     x = pose[0]
     y = pose[1]
     z = pose[2]
-    phi = pose[3]
+    phi = -pose[3]
     theta1_s1 = np.arctan2(y,x) # base rotation
     theta1_s2 = clamp(np.pi + theta1_s1) # second solution to theta 1
 

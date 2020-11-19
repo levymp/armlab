@@ -25,6 +25,7 @@ def clamp(angle):
         angle += 2 * np.pi
     return angle
 
+clamp_mtx = np.vectorize(clamp)
 
 def FK_dh(dh_params, joint_angles, link):
     """!
@@ -47,7 +48,7 @@ def FK_dh(dh_params, joint_angles, link):
     """
     H_mat = np.eye(4)
 
-    for l in range(link):
+    for l in range(link+1):
         H_mat = H_mat*get_transform_from_dh(dh_params[l, 0], dh_params[l, 1], dh_params[l, 2], joint_angles[l] + dh_params[l,3])
 
     return H_mat
@@ -92,7 +93,7 @@ def get_euler_angles_from_T(T):
     """
     
     # phi, theta, psi
-    return [np.arctan(T[2,1]/T[2,2]), np.arcsin(T[2,0]), np.arctan(T[1, 0]/T[0, 0])]
+    return [np.arctan2(T[2,1],T[2,2]), np.arcsin(T[2,0]), np.arctan2(T[1, 0],T[0, 0])]
 
 
 def get_pose_from_T(T):
@@ -109,7 +110,7 @@ def get_pose_from_T(T):
     x = T[0, 3]
     y = T[1, 3]
     z = T[2, 3]
-    phi = np.arctan(T[2,1]/T[2,2])
+    phi = np.arctan2(T[2,1],T[2,2])
 
     return (x, y, z, phi)
 
@@ -161,24 +162,41 @@ def IK_geometric(dh_params, pose):
     x = pose[0]
     y = pose[1]
     z = pose[2]
-    phi = -pose[3]
-    theta1_s1 = np.arctan2(y,x) # base rotation
-    theta1_s2 = clamp(np.pi + theta1_s1) # second solution to theta 1
+    phi = pose[3]
+    
+    l2 = dh_params[1,0] # link 2 length
+    l3 = dh_params[2,0] # link 3 length
+    t2 = dh_params[1,3]
+    t3 = dh_params[2,3]
 
-    end_link = dh_params[4,0]
+    # Get base rotation
+    if(abs(x) < 0.005 and abs(y) < 0.005):
+        theta1_s1 = 0
+        theta2_s2 = 0
+    else:
+        theta1_s1 = clamp(np.arctan2(y,x)) # base rotation
+        theta1_s2 = clamp(np.pi + theta1_s1) # second solution to theta 1
+
+    end_link = dh_params[3,0]
     k = np.linalg.norm([x,y]) # length along x-y
-    # ox = x - end_link*np.cos(phi)*np.cos(theta1)
-    # oy = y - end_link*np.cos(phi)*np.sin(theta1)
     ok = k - end_link*np.cos(phi)
     oz = z - end_link*np.sin(phi)
 
-    l2 = dh_params[1,0] # link 2 length
-    l3 = dh_params[2,0] # link 3 length
-
     num = ok**2 + oz**2 - l2**2 - l3**2
     den = 2*l2*l3
+
     theta3_s1 = np.arccos(num/den)
+    theta3_s1 = np.sign(theta3_s1)*theta3_s1 # make this always positive
     theta3_s2 = -theta3_s1
+    print(num, den)
+    print(num/den)
+    if(abs(num/den) < 0.03):
+        theta3_s1 = -np.pi/2
+        theta3_s2 = np.pi/2
+        print('called t3 edit')
+    elif(abs(num/den) > 0.95):
+        theta3_s1 = -np.pi
+        theta3_s2 = np/pi
 
     alpha_s1 = np.arctan2(l3*np.sin(theta3_s1), l2 + l3*np.cos(theta3_s1))
     alpha_s2 = np.arctan2(l3*np.sin(theta3_s2), l2 + l3*np.cos(theta3_s2))
@@ -186,16 +204,25 @@ def IK_geometric(dh_params, pose):
     theta2_s1 = np.arctan2(oz,ok) - alpha_s1
     theta2_s2 = np.arctan2(oz,ok) - alpha_s2
 
-    t2 = dh_params[1,3]
-    t3 = dh_params[2,3]
+    theta4_s1 = phi - sum([theta2_s1, theta3_s1])
+    theta4_s2 = phi - sum([theta2_s2, theta3_s2])
+    theta4_s3 = phi - sum([theta2_s1, theta3_s1])
+    theta4_s4 = phi - sum([theta2_s2, theta3_s2])
 
-    theta4_s1 = phi - sum([theta1_s1, theta2_s1, theta3_s1])
-    theta4_s2 = phi - sum([theta1_s1, theta2_s1, theta3_s2])
-    theta4_s3 = phi - sum([theta1_s2, theta2_s2, theta3_s2])
-    theta4_s4 = phi - sum([theta1_s2, theta2_s2, theta3_s2])
-    solution_matrix = np.matrix([[theta1_s1, theta2_s1 - t2, theta3_s1 - t3, theta4_s1],
-                                 [theta1_s1, theta2_s1 - t2, theta3_s2 - t3, theta4_s2],
-                                 [theta1_s2, theta2_s2 - t2, theta3_s2 - t3, theta4_s3],
-                                 [theta1_s2, theta2_s2 - t2, theta3_s2 - t3, theta4_s4]])
+    theta2_s1 -= t2
+    theta2_s2 -= t2
+    theta3_s1 -= t3
+    theta3_s2 -= t3
+
+    if(abs(theta1_s1) > abs(theta1_s2)):
+        tmp = theta1_s2
+        theta1_s2 = theta1_s1
+        theta1_s1 = tmp
+    solution_matrix = np.matrix([[theta1_s1, theta2_s1, theta3_s1, theta4_s1],
+                                 [theta1_s1, theta2_s2, theta3_s2, theta4_s2],
+                                 [theta1_s2, -theta2_s1, -theta3_s1, -theta4_s3],
+                                 [theta1_s2, -theta2_s2, -theta3_s2, -theta4_s4]])
+
+    solution_matrix = clamp_mtx(solution_matrix)
 
     return solution_matrix

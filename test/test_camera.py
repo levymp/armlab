@@ -21,6 +21,7 @@ class ImageListener:
       print(e)
     (rows,cols,channels) = cv_image.shape
     cv_image = cv2.cvtColor(cv_image, cv2.COLOR_RGB2BGR)
+    camera.blockDetector(rgbimg)
     cv2.imshow("Image window", cv_image)
     cv2.waitKey(3)
 

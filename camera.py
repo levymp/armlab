@@ -142,13 +142,14 @@ class Camera():
         """
         pass
 
-    def blockDetector(self):
+    def blockDetector(self, rgbimg):
         """!
         @brief      Detect blocks from rgb
 
                     TODO: Implement your block detector here. You will need to locate blocks in 3D space and put their XYZ
                     locations in self.block_detections
         """
+        print(rgbimg)
         pass
 
     def detectBlocksInDepthImage(self):

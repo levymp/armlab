@@ -170,8 +170,31 @@ class Camera():
                     TODO: Implement your block detector here. You will need to locate blocks in 3D space and put their XYZ
                     locations in self.block_detections
         """
-        print(rgbimg)
-        pass
+        point = self.last_click
+        blocks = cv2.cvtColor(rgbimg, cv2.COLOR_BGR2RGB)
+        color = blocks[point]
+        colorlow = np.array([color[0]-15, color[1]-15, color[2]-15])
+        colorhigh = np.array([color[0]+15, color[1]+15, color[2]+15])
+        mask = cv2.inRange(blocks, colorlow, colorhigh)
+        mask = cv2.blur(mask,(2,2))
+        contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        mindis = 10000000
+        mincon = None
+        rec = None
+        for c in range(len(contours)):
+          minRect = cv2.minAreaRect(contours[c])
+          dist = math.sqrt((minRect[0][0] - point[1])**2 + (minRect[0][1]- point[0])**2)
+          if dist < mindis:
+            mindis = dist
+            mincon = c
+            rec = minRect
+
+        box = cv2.boxPoints(rec)
+        box = np.intp(box)
+        mu = cv2.moments(contours[mincon])
+        mc = (mu['m10'] / (mu['m00'] + 1e-5), mu['m01'] / (mu['m00'] + 1e-5))
+        self.block_detections = mc
+        self.block_contours = contours
 
     def detectBlocksInDepthImage(self):
         """!

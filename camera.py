@@ -285,6 +285,7 @@ class VideoThread(QThread):
             depth_frame = self.camera.convertQtDepthFrame()
             if((rgb_frame != None)&(depth_frame != None)):
                 self.updateFrame.emit(rgb_frame, depth_frame)
+                self.camera.processVideoFrame()
             time.sleep(0.03)
             if __name__ == '__main__':
                 cv2.imshow("Image window", cv2.cvtColor(self.camera.VideoFrame,cv2.COLOR_RGB2BGR))

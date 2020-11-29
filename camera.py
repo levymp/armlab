@@ -4,6 +4,7 @@ Class to represent the camera.
 
 import cv2
 import time
+import math
 import numpy as np
 from PyQt4.QtGui import QImage
 from PyQt4.QtCore import QThread, pyqtSignal, QTimer
@@ -48,7 +49,7 @@ class Camera():
         """!
         @brief      Process a video frame
         """
-        cv2.drawContours(self.VideoFrame,self.block_contours,-1,(255,0,255),3)
+        cv2.drawContours(self.VideoFrame,self.block_contours, 0,(255,0,255),3)
 
     def ColorizeDepthFrame(self):
         """!
@@ -163,27 +164,40 @@ class Camera():
         """
         pass
 
-    def blockDetector(self, rgbimg):
+    def blockDetector(self):
         """!
         @brief      Detect blocks from rgb
 
                     TODO: Implement your block detector here. You will need to locate blocks in 3D space and put their XYZ
                     locations in self.block_detections
         """
+        rgbimg = self.VideoFrame
+        h,w,c = rgbimg.shape
         point = self.last_click
         blocks = cv2.cvtColor(rgbimg, cv2.COLOR_BGR2RGB)
-        color = blocks[point]
-        colorlow = np.array([color[0]-15, color[1]-15, color[2]-15])
-        colorhigh = np.array([color[0]+15, color[1]+15, color[2]+15])
-        mask = cv2.inRange(blocks, colorlow, colorhigh)
-        mask = cv2.blur(mask,(2,2))
-        contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        mindis = 10000000
+        color = blocks[point[1],point[0], :]
+        avgc = np.array([0,0,0])
+        adif = np.array([0,0,0])
+        sq = 7
+        for i in range(sq):
+          i = int(i-(i-1)/2)
+          for j in range(sq):
+            j = int(j-(j-1)/2)
+            avgc = avgc + blocks[point[1]+i,point[0]+j, :]
+            adif = adif + np.subtract(blocks[point[1]+i,point[0]+j, :], color)
+        avgc = avgc/(sq*sq)
+        adif = 10+adif/(sq*sq*20)
+        print("adif", adif)
+        colorlow = np.array([avgc[0]-(adif[0]), avgc[1]-(adif[1]), avgc[2]-(adif[2])])
+        colorhigh = np.array([avgc[0]+(adif[0]), avgc[1]+(adif[1]), avgc[2]+(adif[2])])
+        mask = cv2.blur(cv2.inRange(blocks, colorlow, colorhigh), (2,2))
+        im, contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        mindis = 100000
         mincon = None
         rec = None
         for c in range(len(contours)):
           minRect = cv2.minAreaRect(contours[c])
-          dist = math.sqrt((minRect[0][0] - point[1])**2 + (minRect[0][1]- point[0])**2)
+          dist = math.sqrt((minRect[0][0] - point[0])**2 + (minRect[0][1]- point[1])**2)
           if dist < mindis:
             mindis = dist
             mincon = c
@@ -193,8 +207,9 @@ class Camera():
         box = np.intp(box)
         mu = cv2.moments(contours[mincon])
         mc = (mu['m10'] / (mu['m00'] + 1e-5), mu['m01'] / (mu['m00'] + 1e-5))
+        print("mc",mc)
         self.block_detections = mc
-        self.block_contours = contours
+        self.block_contours = [box]
 
     def detectBlocksInDepthImage(self):
         """!
@@ -281,11 +296,12 @@ class VideoThread(QThread):
             cv2.namedWindow("Tag window", cv2.WINDOW_NORMAL)
             time.sleep(0.5)
         while True:
+            self.camera.processVideoFrame()
             rgb_frame = self.camera.convertQtVideoFrame()
             depth_frame = self.camera.convertQtDepthFrame()
             if((rgb_frame != None)&(depth_frame != None)):
                 self.updateFrame.emit(rgb_frame, depth_frame)
-                self.camera.processVideoFrame()
+                
             time.sleep(0.03)
             if __name__ == '__main__':
                 cv2.imshow("Image window", cv2.cvtColor(self.camera.VideoFrame,cv2.COLOR_RGB2BGR))

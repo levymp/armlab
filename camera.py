@@ -36,6 +36,9 @@ class Camera():
         self.depth2rgb_affine = np.float32([[1,0,0],[0,1,0]])
         self.cameraCalibrated = False
         self.intrinsic_matrix = np.array([])
+        self.tag_1_cf_pose = None
+        self.tag_1_wf_pose = [-141.6, 0, -140.91, 1]
+        self.Camera2WorldFrameTransform = None
         self.last_click = np.array([0,0])
         self.new_click = False
         self.rgb_click_points = np.zeros((5,2),int)
@@ -218,9 +221,9 @@ class TagDetectionListener:
     self.camera = camera
   def callback(self,data):
     self.camera.tag_detections = data
-    #for detection in data.detections:
-       #print(detection.id[0])
-       #print(detection.pose.pose.pose.position)
+    for detection in data.detections:
+      if detection.id[0] == 1 and not self.camera.tag_1_pose:
+        self.camera.tag_1_pose = detection.pose.pose.pose.position
 
 class CameraInfoListener:
   def __init__(self, topic, camera):
@@ -229,7 +232,6 @@ class CameraInfoListener:
     self.camera = camera
   def callback(self,data):
     self.camera.intrinsic_matrix = np.reshape(data.K, (3,3))
-    #print(self.camera.intrinsic_matrix)
 
 class DepthListener:
   def __init__(self, topic, camera):

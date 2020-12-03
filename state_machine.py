@@ -209,12 +209,12 @@ class StateMachine():
         @brief      Gets the user input to perform the calibration
         """
         self.current_state = "calibrate"
-        subprocess.call("rosrun camera_calibration cameracalibrator.py --size 8x6 --square 0.025 image:=/camera/color/image_raw camera:=/camera/color --no-service-check", shell=True)
-        #os.system("rosrun camera_calibration cameracalibrator.py --size 8x6 --square 0.025 image:=/camera/color/image_raw camera:=/camera/color --no-service-check")
-        self.current_state = "idle"
+        result = self.camera.calibrate()
+        if result: 
+            print('CAMERA CALIBRATED')
+        else: 
+            print('CAMERA DID NOT CALIBRATE')
         self.next_state = "idle"
-
-        """TODO Perform camera calibration routine here"""
         self.status_message = "Calibration - Completed Calibration"
 
     """ TODO """

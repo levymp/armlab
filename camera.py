@@ -14,7 +14,8 @@ from sensor_msgs.msg import Image
 from sensor_msgs.msg import CameraInfo
 from apriltag_ros.msg import *
 from cv_bridge import CvBridge, CvBridgeError
-
+from scipy.spatial.transform import Rotation as R
+from copy import copy
 
 class Camera():
     """!
@@ -36,15 +37,15 @@ class Camera():
         self.depth2rgb_affine = np.float32([[1,0,0],[0,1,0]])
         self.cameraCalibrated = False
         self.intrinsic_matrix = np.array([])
-        self.tag_1_cf_pose = None
-        self.tag_1_wf_pose = [-141.6, 0, -140.91, 1]
-        self.Camera2WorldFrameTransform = None
         self.last_click = np.array([0,0])
         self.new_click = False
         self.rgb_click_points = np.zeros((5,2),int)
         self.depth_click_points = np.zeros((5,2),int)
         self.tag_detections = np.array([])
-
+        # AR Tag information
+        self.ar_tag_detections = []
+        self.tag_1_wf_pose = np.array([[-.1416], [0], [-.06691], [1]])
+        self.rgb2world = None
         """ block info """
         self.block_contours = np.array([])
         self.block_detections = np.array([])
@@ -129,6 +130,56 @@ class Camera():
         except:
             return None
 
+    def calibrate(self):
+      # check that enough detections have been found
+      if len(self.ar_tag_detections) != 100: 
+        return False
+      
+            
+      # position and orientation will be average of the last ten AR Tag Detections
+      position = np.array([0.0, 0.0, 0.0])
+      orientation = np.array([0.0, 0.0, 0.0, 0.0])
+
+      for detection in self.ar_tag_detections:
+        for i in range(4):
+          if i < 3:
+            # position is length 3
+            position[i] += detection['position'][i]
+          # orientation is length 4
+          orientation[i] += detection['orientation'][i]
+
+      # get position/orientation of AR Tag for this detection
+      position = position/100
+      orientation = orientation/100
+      print('POSITION:')
+      print(position)
+      print('ORIENTATION:')
+      print(orientation)
+      # get rotation from quaternion 
+      # rotate from camera -> AR Tag Frame
+      rotation = R.from_quat(orientation)
+      print('EULER ANGLES: (XYZ)')
+      print(rotation.as_euler('xyz', degrees=True))
+      # rotation from AR Tag Frame -> World Frame 
+      rotation_ttw = R.from_euler('xz', [180,90], degrees=True)
+      rotation_ttw = rotation_ttw.as_dcm()
+      rotation = rotation.as_dcm()
+      
+      # rotation from World -> Camera Frame
+      #rotation = np.matmul(rotation_ttw, rotation)
+
+      # get translation from pose of april-tag
+      translation = position 
+      # form Transform
+      holo = np.hstack((rotation_ttw, np.transpose([translation])))
+      self.rgb2world = np.vstack((holo, np.array([0, 0, 0, 1])))
+      # add in 
+      self.rgb2world = np.linalg.inv(self.rgb2world)
+
+      self.calibrated = True
+      return True
+    
+
     def getAffineTransform(self, coord1, coord2):
         """!
         @brief      Find the affine matrix transform between 2 sets of corresponding coordinates.
@@ -143,7 +194,8 @@ class Camera():
         """
         pts1 = coord1[0:3].astype(np.float32)
         pts2 = coord2[0:3].astype(np.float32)
-        print(cv2.getAffineTransform(pts1, pts2))
+        print(pts1)
+        print(pts2)
         return cv2.getAffineTransform(pts1, pts2)
 
 
@@ -160,13 +212,16 @@ class Camera():
         """
         return frame
 
-    def loadCameraCalibration(self, file):
-        """!
-        @brief      Load camera intrinsic matrix from file.
-
-        @param      file  The file
-        """
-        pass
+    def pointToWorld(self, pt):
+        depth = float(self.DepthFrameRaw[pt[1], pt[0]]) * .001
+        pt = np.array([[pt[0]],[pt[1]],[1]])
+        cameraframe = depth * np.matmul(np.linalg.inv(self.intrinsic_matrix), pt)
+        cameraframe = np.vstack((cameraframe, np.array([1])))
+        world = np.matmul(self.rgb2world, cameraframe)
+        print(world)
+        world = world + self.tag_1_wf_pose
+        print(world)
+        return world
 
     def blockDetector(self, rgbimg):
         """!
@@ -222,9 +277,23 @@ class TagDetectionListener:
   def callback(self,data):
     self.camera.tag_detections = data
     for detection in data.detections:
-      if detection.id[0] == 1 and not self.camera.tag_1_pose:
-        self.camera.tag_1_pose = detection.pose.pose.pose.position
-
+      if detection.id[0] == 1:
+        # get the position and orientation as numpy arrays
+        position = detection.pose.pose.pose.position
+        position = np.array([position.x, position.y, position.z])
+        
+        orientation = detection.pose.pose.pose.orientation
+        orientation = np.array([orientation.x, orientation.y, orientation.z, orientation.w])
+        
+        # add to list of detection pose/orientations 
+        self.camera.ar_tag_detections.append(copy({'position': position, 'orientation': orientation}))
+        if len(self.camera.ar_tag_detections) > 100:
+          garbage = self.camera.ar_tag_detections.pop(0)
+        
+        
+        
+        
+        
 class CameraInfoListener:
   def __init__(self, topic, camera):
     self.topic = topic

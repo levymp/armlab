@@ -246,7 +246,8 @@ class Gui(QMainWindow):
         if self.camera.DepthFrameRaw.any() != 0:
             z = self.camera.DepthFrameRaw[pt.y()][pt.x()]
             self.ui.rdoutMousePixels.setText("(%.0f,%.0f,%.0f)" % (pt.x(), pt.y(), z))
-            self.ui.rdoutMouseWorld.setText("(-,-,-)")
+            worldpt = self.camera.pointToWorld([pt.x(), pt.y()])
+            self.ui.rdoutMouseWorld.setText("(%.3f,%.3f,%.3f)" % (worldpt[0], worldpt[1], worldpt[2]))
 
     def calibrateMousePress(self, mouse_event):
         """!
@@ -260,7 +261,6 @@ class Gui(QMainWindow):
         self.camera.last_click[0] = pt.x()
         self.camera.last_click[1] = pt.y()
         self.camera.new_click = True
-        # print(self.camera.last_click)
 
     def initRxarm(self):
         """!

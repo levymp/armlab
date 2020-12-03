@@ -45,7 +45,7 @@ class Camera():
         self.tag_detections = np.array([])
         # AR Tag information
         self.ar_tag_detections = []
-        self.tag_1_wf_pose = np.array([[-.1416], [0], [-.06691], [1]])
+        self.tag_1_wf_pose = np.array([[-.1416], [0], [-.06691], [0]])
         self.rgb2world = None
         """ block info """
         self.block_contours = np.array([])
@@ -152,14 +152,10 @@ class Camera():
       # get position/orientation of AR Tag for this detection
       position = position/100
       orientation = orientation/100
-      print('POSITION:')
-      print(position)
-      print('ORIENTATION:')
-      print(orientation)
       # get rotation from quaternion 
       # rotate from camera -> AR Tag Frame
       rotation = R.from_quat(orientation)
-      print('EULER ANGLES: (XYZ)')
+      print('EULER ANGLES (XYZ):')
       print(rotation.as_euler('xyz', degrees=True))
       # rotation from AR Tag Frame -> World Frame 
       rotation_ttw = R.from_euler('xz', [180,90], degrees=True)
@@ -219,9 +215,7 @@ class Camera():
         cameraframe = depth * np.matmul(np.linalg.inv(self.intrinsic_matrix), pt)
         cameraframe = np.vstack((cameraframe, np.array([1])))
         world = np.matmul(self.rgb2world, cameraframe)
-        print(world)
         world = world + self.tag_1_wf_pose
-        print(world)
         return world
 
     def blockDetector(self):
@@ -247,7 +241,6 @@ class Camera():
             adif = adif + np.subtract(blocks[point[1]+i,point[0]+j, :], color)
         avgc = avgc/(sq*sq)
         adif = 10+adif/(sq*sq*20)
-        print("adif", adif)
         colorlow = np.array([avgc[0]-(adif[0]), avgc[1]-(adif[1]), avgc[2]-(adif[2])])
         colorhigh = np.array([avgc[0]+(adif[0]), avgc[1]+(adif[1]), avgc[2]+(adif[2])])
         mask = cv2.blur(cv2.inRange(blocks, colorlow, colorhigh), (2,2))
@@ -266,8 +259,9 @@ class Camera():
         box = cv2.boxPoints(rec)
         box = np.intp(box)
         mu = cv2.moments(contours[mincon])
-        mc = (mu['m10'] / (mu['m00'] + 1e-5), mu['m01'] / (mu['m00'] + 1e-5))
+        mc = (int(mu['m10'] / (mu['m00'] + 1e-5)), int(mu['m01'] / (mu['m00'] + 1e-5)))
         print("mc",mc)
+        print(self.pointToWorld(mc))
         self.block_detections = mc
         self.block_contours = [box]
 

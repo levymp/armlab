@@ -48,7 +48,7 @@ def FK_dh(dh_params, joint_angles, link):
     """
     H_mat = np.eye(4)
 
-    for l in range(link+1):
+    for l in range(link):
         H_mat = H_mat*get_transform_from_dh(dh_params[l, 0], dh_params[l, 1], dh_params[l, 2], joint_angles[l] + dh_params[l,3])
 
     return H_mat

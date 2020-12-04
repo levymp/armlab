@@ -146,8 +146,24 @@ def to_s_matrix(w,v):
     """
     pass
 
+def IK_2DOF(ok,oz,l2,l3):
+    num = np.square(ok, dtype=np.float64) + np.square(oz, dtype=np.float64) - np.square(l2, dtype=np.float64) - np.square(l3, dtype=np.float64)
+    den = 2*l2*l3
 
-def IK_geometric(dh_params, pose):
+    res = np.divide(num,den, dtype=np.float64)
+    
+    theta3_s1 = np.arctan2(np.sqrt(1.0-np.square(res, dtype=np.float64), dtype=np.float64), res, dtype=np.float64)
+    theta3_s1 = np.sign(theta3_s1)*theta3_s1 # make this always positive
+    theta3_s2 = -theta3_s1
+
+    alpha_s1 = np.arctan2(l3*np.sin(theta3_s1, dtype=np.float64), l2 + l3*np.cos(theta3_s1, dtype=np.float64), dtype=np.float64)
+    alpha_s2 = np.arctan2(l3*np.sin(theta3_s2, dtype=np.float64), l2 + l3*np.cos(theta3_s2, dtype=np.float64), dtype=np.float64)
+
+    theta2_s1 = np.arctan2(oz,ok, dtype=np.float64) - alpha_s1
+    theta2_s2 = np.arctan2(oz,ok, dtype=np.float64) - alpha_s2
+    return theta2_s1,theta3_s1,theta2_s2,theta3_s2
+
+def IK_geometric(dh_params, pose, theta5=0):
     """!
     @brief      Get all possible joint configs that produce the pose.
 
@@ -159,70 +175,80 @@ def IK_geometric(dh_params, pose):
     @return     All four possible joint configurations in a numpy array 4x4 where each row is one possible joint
                 configuration
     """
+    print("fnc called")
     x = pose[0]
     y = pose[1]
     z = pose[2]
     phi = pose[3]
     
+    l1 = dh_params[0,0] # link 1 length
     l2 = dh_params[1,0] # link 2 length
     l3 = dh_params[2,0] # link 3 length
+    l4 = dh_params[3,0] # end link length
+
+    if(np.sqrt(x**2 + y**2 + z**2) > (l1+l2+l3+l4)):
+        print("NO SOLUTION FOUND")
+        return False, np.zeros((4,5))
     t2 = dh_params[1,3]
     t3 = dh_params[2,3]
 
-    # Get base rotation
-    if(abs(x) < 0.005 and abs(y) < 0.005):
-        theta1_s1 = 0
-        theta2_s2 = 0
-    else:
-        theta1_s1 = clamp(np.arctan2(y,x)) # base rotation
-        theta1_s2 = clamp(np.pi + theta1_s1) # second solution to theta 1
-
-    end_link = dh_params[3,0]
-    k = np.linalg.norm([x,y]) # length along x-y
-    ok = k - end_link*np.cos(phi)
-    oz = z - end_link*np.sin(phi)
-
-    num = ok**2 + oz**2 - l2**2 - l3**2
-    den = 2*l2*l3
-
-    theta3_s1 = np.arccos(num/den)
-    theta3_s1 = np.sign(theta3_s1)*theta3_s1 # make this always positive
-    theta3_s2 = -theta3_s1
-    print(num, den)
-    print(num/den)
-    if(abs(num/den) < 0.03):
-        theta3_s1 = -np.pi/2
-        theta3_s2 = np.pi/2
-        print('called t3 edit')
-    elif(abs(num/den) > 0.95):
-        theta3_s1 = -np.pi
-        theta3_s2 = np/pi
-
-    alpha_s1 = np.arctan2(l3*np.sin(theta3_s1), l2 + l3*np.cos(theta3_s1))
-    alpha_s2 = np.arctan2(l3*np.sin(theta3_s2), l2 + l3*np.cos(theta3_s2))
-
-    theta2_s1 = np.arctan2(oz,ok) - alpha_s1
-    theta2_s2 = np.arctan2(oz,ok) - alpha_s2
-
-    theta4_s1 = phi - sum([theta2_s1, theta3_s1])
-    theta4_s2 = phi - sum([theta2_s2, theta3_s2])
-    theta4_s3 = phi - sum([theta2_s1, theta3_s1])
-    theta4_s4 = phi - sum([theta2_s2, theta3_s2])
-
-    theta2_s1 -= t2
-    theta2_s2 -= t2
-    theta3_s1 -= t3
-    theta3_s2 -= t3
-
+    theta1_s1 = clamp(np.arctan2(y,x)) # base rotation
+    theta1_s2 = clamp(np.pi + theta1_s1) # second solution to theta 1
+    
+    # By convention, we will define the first solution as smallest angle
+    swapped = False
     if(abs(theta1_s1) > abs(theta1_s2)):
         tmp = theta1_s2
         theta1_s2 = theta1_s1
         theta1_s1 = tmp
-    solution_matrix = np.matrix([[theta1_s1, theta2_s1, theta3_s1, theta4_s1],
-                                 [theta1_s1, theta2_s2, theta3_s2, theta4_s2],
-                                 [theta1_s2, -theta2_s1, -theta3_s1, -theta4_s3],
-                                 [theta1_s2, -theta2_s2, -theta3_s2, -theta4_s4]])
+
+    k = np.sign(x)*np.sqrt((x**2 + y**2)) # length along x-y
+    ok = k - l4*np.cos(phi)
+    ok2 = -ok
+    oz = z - l4*np.sin(phi)
+    
+    theta2_s1, theta3_s1, theta2_s2, theta3_s2 = IK_2DOF(ok,oz,l2,l3)
+
+    theta2_s3 = np.pi - theta2_s1
+    theta2_s4 = np.pi - theta2_s2
+
+    theta3_s3 = -theta3_s1
+    theta3_s4 = -theta3_s2
+
+    theta4_s1 = phi - clamp(sum([theta2_s1, theta3_s1]))
+    theta4_s2 = phi - clamp(sum([theta2_s2, theta3_s2]))
+    theta4_s3 = np.pi + phi - clamp(theta2_s3 + theta3_s3)
+    theta4_s4 = np.pi + phi - clamp(theta2_s4 + theta3_s4)
+
+    theta2_s1 -= t2
+    theta2_s2 -= t2
+    theta2_s3 -= t2
+    theta2_s4 -= t2
+
+    theta3_s1 -= t3
+    theta3_s2 -= t3
+    theta3_s3 -= t3
+    theta3_s4 -= t3
+
+    solution_matrix = np.matrix([[theta1_s1, theta2_s1, theta3_s1, theta4_s1, theta5],
+                                 [theta1_s1, theta2_s2, theta3_s2, theta4_s2, theta5],
+                                 [theta1_s2, theta2_s3, theta3_s3, theta4_s3, theta5],
+                                 [theta1_s2, theta2_s4, theta3_s4, theta4_s4, theta5]])
 
     solution_matrix = clamp_mtx(solution_matrix)
 
-    return solution_matrix
+    # check if all results are nan
+    if np.isnan(theta4_s1) and np.isnan(theta4_s2) and np.isnan(theta4_s3) and np.isnan(theta4_s4):
+        print("NO SOLUTION FOUND")
+        return False, solution_matrix
+
+    # fk_poses = []
+    # for joint_angles in solution_matrix.tolist():
+    #     print('Joint angles:', joint_angles)
+    #     for i, _ in enumerate(joint_angles):
+    #         pose = get_pose_from_T(FK_dh(dh_params, joint_angles, i))
+    #         if i == len(joint_angles)-1:
+    #             print('Link {} pose: {}'.format(i, pose))
+    #             fk_poses.append(pose)
+    #     print()
+    return True, solution_matrix

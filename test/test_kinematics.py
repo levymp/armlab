@@ -25,7 +25,8 @@ if __name__ == '__main__':
     dh_params = parse_dh_param_file(args['dhconfig'])
 
     ### Add arm configurations to test here
-    fk_angles = [[0.0,           0.0,            0.0,               0.0]]
+    fk_angles = [[0.0,           0.0,           0.0,           0.0,      0.0], 
+                [0.0,            0.0,           0.0,           1.0,      0.0]]
     
     print('Test FK')
     fk_poses = []
@@ -34,7 +35,7 @@ if __name__ == '__main__':
         for i, _ in enumerate(joint_angles):
             pose = get_pose_from_T(FK_dh(deepcopy(dh_params), joint_angles, i))
             print('Link {} pose: {}'.format(i, pose))
-            if i == len(joint_angles) - 1:
+            if i == len(joint_angles)-1:
                 fk_poses.append(pose)
         print()
 
@@ -42,7 +43,7 @@ if __name__ == '__main__':
     for pose, angles in zip(fk_poses, fk_angles):
         matching_angles = False
         print('Pose: {}'.format(pose))
-        options = IK_geometric(deepcopy(dh_params), pose)
+        success, options = IK_geometric(deepcopy(dh_params), pose)
         for i, joint_angles in enumerate(options):
             print('Option {}: {}'.format(i, joint_angles))
             compare = vclamp(joint_angles - angles)

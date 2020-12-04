@@ -100,6 +100,30 @@ class Gui(QMainWindow):
         self.ui.btnUser4.setText('Execute')
         self.ui.btnUser4.clicked.connect(partial(nxt_if_arm_init, 'execute'))
         
+        # teach
+        self.ui.btnUser5.setText('Save State Open')
+        # append state to waypoints list
+        self.ui.btnUser5.clicked.connect(lambda : self.sm.set_next_state('append_state_open'))
+
+        # teach
+        self.ui.btnUser6.setText('Save State Closed')
+        # append state to waypoints list
+        self.ui.btnUser6.clicked.connect(lambda : self.sm.set_next_state('append_state_closed'))
+
+        # Clear Waypoints
+        self.ui.btnUser7.setText('Reset Waypoints')
+        # append state to waypoints list
+        self.ui.btnUser7.clicked.connect(lambda : self.sm.reset_waypoints())
+
+        # Print Waypoints
+        self.ui.btnUser8.setText('Print Waypoints')
+        self.ui.btnUser8.clicked.connect(lambda : self.sm.print_waypoints())
+
+        # Dance 
+        self.ui.btnUser9.setText('DANCE!')
+        self.ui.btnUser9.clicked.connect(lambda : self.sm.dance())
+
+
         # Sliders
         for sldr in self.joint_sliders:
             sldr.valueChanged.connect(self.sliderChange)
@@ -145,8 +169,8 @@ class Gui(QMainWindow):
         self.ui.rdoutY.setText(str("%+.2f mm" % (1000*pos[1])))
         self.ui.rdoutZ.setText(str("%+.2f mm" % (1000*pos[2])))
         self.ui.rdoutPhi.setText(str("%+.2f rad" % (pos[3])))
-        #self.ui.rdoutTheta.setText(str("%+.2f" % (pos[4])))
-        #self.ui.rdoutPsi.setText(str("%+.2f" % (pos[5])))
+        self.ui.rdoutTheta.setText(str("%+.2f" % (pos[4])))
+        self.ui.rdoutPsi.setText(str("%+.2f" % (pos[5])))
     
     @pyqtSlot(QImage, QImage)
     def setImage(self, rgb_image, depth_image):

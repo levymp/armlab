@@ -5,6 +5,11 @@ from PyQt4.QtCore import (QThread, Qt, pyqtSignal, pyqtSlot, QTimer)
 import time
 import numpy as np
 import rospy
+import subprocess
+import os
+from dance import dance_waypoints, dance_gripper
+
+
 
 class StateMachine():
     """!
@@ -26,17 +31,10 @@ class StateMachine():
         self.status_message = "State: Idle"
         self.current_state = "idle"
         self.next_state = "idle"
-        self.waypoints = [
-            [-np.pi/2,       -0.5,      -0.3,            0.0,       0.0],
-            [0.75*-np.pi/2,   0.5,      0.3,      0.0,       np.pi/2],
-            [0.5*-np.pi/2,   -0.5,     -0.3,     np.pi / 2,     0.0],
-            [0.25*-np.pi/2,   0.5,     0.3,     0.0,       np.pi/2],
-            [0.0,             0.0,      0.0,         0.0,     0.0],
-            [0.25*np.pi/2,   -0.5,      -0.3,      0.0,       np.pi/2],
-            [0.5*np.pi/2,     0.5,     0.3,     np.pi / 2,     0.0],
-            [0.75*np.pi/2,   -0.5,     -0.3,     0.0,       np.pi/2],
-            [np.pi/2,         0.5,     0.3,      0.0,     0.0],
-            [0.0,             0.0,     0.0,      0.0,     0.0]]
+        self.waypoints = []
+
+        self.gripper_waypoints = []
+
 
     def set_next_state(self, state):
         """!
@@ -77,8 +75,54 @@ class StateMachine():
         if self.next_state == "manual":
             self.manual()
 
+        if self.next_state == "append_state_open":
+            self.save_state(True)
+            
+        if self.next_state == "append_state_closed":
+            self.save_state(False)
+
 
     """Functions run for each state"""
+
+
+    def save_state(self, gripper_open):
+        # get joint state
+        tmp = self.rxarm.get_positions()
+        print("NEW STATE: " + str(tmp.tolist()))
+
+        # status message
+        self.status_message = 'APPENDING NEW STATE'
+        
+        # save state
+        self.waypoints.append(tmp.tolist())
+        # save gripper state
+        self.gripper_waypoints.append(gripper_open)
+        
+        # set new state
+        self.next_state = "idle"
+
+
+    def reset_waypoints(self):
+        print('RESETING WAYPOINTS!')
+        self.status_message = 'RESETING WAYPOINTS!'
+        # Rest joint waypoints and gripper waypoints
+        self.waypoints = []
+        self.gripper_waypoints = []
+        self.next_state = "idle"
+
+    def print_waypoints(self):
+        print('JOINT WAYPOINTS:')
+        print(str(self.waypoints))
+        print('GRIPPER WAYPOINTS:')
+        print(str(self.gripper_waypoints))
+        self.next_state = "idle"
+
+    def dance(self):
+        # overwrite waypoints to dance waypoints
+        self.waypoints = dance_waypoints
+        self.gripper_waypoints = dance_gripper
+        # execute dance
+        self.next_state = 'execute'
 
     def manual(self):
         """!
@@ -109,6 +153,55 @@ class StateMachine():
               Make sure you respect estop signal
         """
         self.status_message = "State: Execute - Executing motion plan"
+        
+        # go through each joint position in waypoints
+        # check current state and waypoints are not empty
+        if self.current_state != "estop" and self.waypoints and self.gripper_waypoints and self.rxarm.initialized:
+
+            # previous gripper state
+            prev_gripper_open = self.gripper_waypoints[0]
+
+            # initialize gripper
+            if prev_gripper_open:
+                self.rxarm.open_gripper()
+            else:
+                self.rxarm.close_gripper()
+
+            for joint_positions, gripper_open in zip(self.waypoints, self.gripper_waypoints):
+                # execute to next state
+                print('moving to: ' + str(joint_positions))
+                print('gripper state: ' + str(gripper_open))
+
+                # check for estop state change
+                if self.current_state == "estop":
+                    # call disable torque
+                    self.rxarm.disable_torque()
+                    break
+
+                self.rxarm.set_positions(joint_positions)
+
+                # check if we have changed gripper state
+                if prev_gripper_open != gripper_open:
+                    # change gripper state to new state
+                    if gripper_open:
+                        self.rxarm.open_gripper()
+                    else:
+                        self.rxarm.close_gripper()
+
+                # overwrite old gripper open bool
+                prev_gripper_open = gripper_open
+
+        elif self.current_state == 'estop':
+            # disable torque as estop has occured
+            print('ESTOP TRIGGERED!')
+            self.rxarm.disable_torque()
+        elif not self.waypoints or not self.gripper_waypoints:
+            # waypoints are empty and nothing to execute
+            print('WAYPOINTS ARE EMPTY!')
+        elif not self.rxarm.initialized:
+            # rxarm not initialized yet
+            print('RXARM NOT INITIALIZED!')
+        # set state to idle
         self.next_state = "idle"
 
     def calibrate(self):
@@ -116,6 +209,9 @@ class StateMachine():
         @brief      Gets the user input to perform the calibration
         """
         self.current_state = "calibrate"
+        subprocess.call("rosrun camera_calibration cameracalibrator.py --size 8x6 --square 0.025 image:=/camera/color/image_raw camera:=/camera/color --no-service-check", shell=True)
+        #os.system("rosrun camera_calibration cameracalibrator.py --size 8x6 --square 0.025 image:=/camera/color/image_raw camera:=/camera/color --no-service-check")
+        self.current_state = "idle"
         self.next_state = "idle"
 
         """TODO Perform camera calibration routine here"""
@@ -139,6 +235,7 @@ class StateMachine():
             self.status_message = "State: Failed to initialize the rxarm!"
             rospy.sleep(5)
         self.next_state = "idle"
+
 
 class StateMachineThread(QThread):
     """!

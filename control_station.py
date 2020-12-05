@@ -262,11 +262,14 @@ class Gui(QMainWindow):
         self.camera.last_click[1] = pt.y()
         self.camera.new_click = True
 
-        if self.sm.current_state == "pick":
+        print(self.sm.next_state)
+        if self.sm.next_state == "pick":
+            print("Pick state called")
             self.camera.blockDetector()
             pickCords = self.camera.pointToWorld(self.camera.block_detections)
             self.sm.pick(pickCords)
-        if self.sm.current_state == "place":
+        if self.sm.next_state == "place":
+            print("Place state called")
             placeCords = self.camera.pointToWorld(self.camera.last_click)
             self.sm.place(placeCords)
 

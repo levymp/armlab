@@ -92,39 +92,39 @@ class StateMachine():
     """Functions run for each state"""
 
     def pick(self, point):
-        point *= 1000
 
         # go above the block
         goal_pose1 = [point[0], point[1], point[2] + 100, -np.pi/2]
         success1, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1) 
-        joint_angles1 = joint_angles1[0,:]
+        joint_angles1 = joint_angles1[0,:].T
+        # list(np.array(joint_angles1).reshape(-1,))
 
         # grab block
         goal_pose2 = [point[0], point[1], point[2] - 100, -np.pi/2]
         success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2)
-        joint_angles2 = joint_angles2[0,:]
+        joint_angles2 = joint_angles2[0,:].T
+        # list(np.array(joint_angles2).reshape(-1,))
 
         if not (success1 and success2):
             print("No IK solution found during PICK")
             return
-
+        print(joint_angles1)
         self.waypoints = [joint_angles1, joint_angles2, joint_angles1]
         self.gripper_waypoints = [0, 1, 1]
         print(self.waypoints)
         self.next_state = 'execute'
 
     def place(self, point):
-        point *= 1000
         
         # go above the desired location
         goal_pose1 = [point[0], point[1], point[2] + 100, -np.pi/2]
-        success, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1)
-        joint_angles1 = joint_angles1[0,:]
+        success1, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1)
+        joint_angles1 = joint_angles1[0,:].tolist()
         
         # release
         goal_pose2 = [point[0], point[1], point[2] - 100, -np.pi/2]
-        success, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2)
-        joint_angles2 = joint_angles2[0,:]
+        success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2)
+        joint_angles2 = joint_angles2[0,:].tolist()
 
         if not (success1 and success2):
             print("No IK solution found during PLACE")

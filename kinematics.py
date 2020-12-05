@@ -97,7 +97,7 @@ def get_euler_angles_from_T(T):
     r = R.from_dcm(T[0:3,0:3])
 
     # phi, theta, psi
-    return r.as_euler('zyx', degrees=False)
+    return r.as_euler('xyz', degrees=False)
 
 
 def get_pose_from_T(T):
@@ -179,7 +179,7 @@ def IK_geometric(dh_params, pose, theta5=0):
     @return     All four possible joint configurations in a numpy array 4x4 where each row is one possible joint
                 configuration
     """
-    print("fnc called")
+    print("IK Called")
     x = pose[0]
     y = pose[1]
     z = pose[2]

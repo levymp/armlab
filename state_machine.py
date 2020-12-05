@@ -1,6 +1,7 @@
 """!
 The state machine that implements the logic.
 """
+from kinematics import IK_geometric
 from PyQt4.QtCore import (QThread, Qt, pyqtSignal, pyqtSlot, QTimer)
 import time
 import numpy as np
@@ -81,10 +82,67 @@ class StateMachine():
         if self.next_state == "append_state_closed":
             self.save_state(False)
 
+        if self.next_state == "pick":
+            self.pick_idle()
+
+        if self.next_state == "place":
+            self.place_idle()
+
 
     """Functions run for each state"""
 
+    def pick(self, point):
+        point *= 1000
 
+        # go above the block
+        goal_pose1 = [point[0], point[1], point[2] + 100, -np.pi/2]
+        success1, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1) 
+        joint_angles1 = joint_angles1[0,:]
+
+        # grab block
+        goal_pose2 = [point[0], point[1], point[2] - 100, -np.pi/2]
+        success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2)
+        joint_angles2 = joint_angles2[0,:]
+
+        if not (success1 and success2):
+            print("No IK solution found during PICK")
+            return
+
+        self.waypoints = [joint_angles1, joint_angles2, joint_angles1]
+        self.gripper_waypoints = [0, 1, 1]
+        print(self.waypoints)
+        self.next_state = 'execute'
+
+    def place(self, point):
+        point *= 1000
+        
+        # go above the desired location
+        goal_pose1 = [point[0], point[1], point[2] + 100, -np.pi/2]
+        success, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1)
+        joint_angles1 = joint_angles1[0,:]
+        
+        # release
+        goal_pose2 = [point[0], point[1], point[2] - 100, -np.pi/2]
+        success, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2)
+        joint_angles2 = joint_angles2[0,:]
+
+        if not (success1 and success2):
+            print("No IK solution found during PLACE")
+            return
+
+        self.waypoints = [joint_angles1, joint_angles2, joint_angles1]
+        self.gripper_waypoints = [1, 0, 0]
+        print(self.waypoints)
+        self.next_state = 'execute'
+
+    def pick_idle(self):
+        self.status_message = "State: Pick - Waiting for input"
+        self.next_state = "pick"
+
+    def place_idle(self):
+        self.status_message = "State: Place - Waiting for input"
+        self.next_state = "place"
+        
     def save_state(self, gripper_open):
         # get joint state
         tmp = self.rxarm.get_positions()

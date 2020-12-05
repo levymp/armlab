@@ -116,12 +116,12 @@ class Gui(QMainWindow):
         self.ui.btnUser7.clicked.connect(lambda : self.sm.reset_waypoints())
 
         # Print Waypoints
-        self.ui.btnUser8.setText('Print Waypoints')
-        self.ui.btnUser8.clicked.connect(lambda : self.sm.print_waypoints())
+        self.ui.btnUser8.setText('PICK')
+        self.ui.btnUser8.clicked.connect(lambda : self.sm.set_next_state('pick'))
 
         # Dance 
-        self.ui.btnUser9.setText('DANCE!')
-        self.ui.btnUser9.clicked.connect(lambda : self.sm.dance())
+        self.ui.btnUser9.setText('PLACE')
+        self.ui.btnUser9.clicked.connect(lambda : self.sm.set_next_state('place'))
 
 
         # Sliders
@@ -261,7 +261,15 @@ class Gui(QMainWindow):
         self.camera.last_click[0] = pt.x()
         self.camera.last_click[1] = pt.y()
         self.camera.new_click = True
-        self.camera.blockDetector()
+
+        if self.sm.current_state == "pick":
+            self.camera.blockDetector()
+            pickCords = self.camera.pointToWorld(self.camera.block_detections)
+            self.sm.pick(pickCords)
+        if self.sm.current_state == "place":
+            placeCords = self.camera.pointToWorld(self.camera.last_click)
+            self.sm.place(placeCords)
+
         print(self.camera.last_click)
 
     def initRxarm(self):

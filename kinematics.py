@@ -8,6 +8,7 @@ There are some functions to start with, you may need to implement a few more
 import numpy as np
 # expm is a matrix exponential function
 from scipy.linalg import expm
+from scipy.spatial.transform import Rotation as R
 
 
 
@@ -91,9 +92,12 @@ def get_euler_angles_from_T(T):
 
     @return     The euler angles from T.
     """
-    
+    # print(T)
+    # print(T[0:2,0:2])
+    r = R.from_dcm(T[0:3,0:3])
+
     # phi, theta, psi
-    return [np.arctan2(T[2,1],T[2,2]), np.arcsin(T[2,0]), np.arctan2(T[1, 0],T[0, 0])]
+    return r.as_euler('zyx', degrees=False)
 
 
 def get_pose_from_T(T):
@@ -110,7 +114,7 @@ def get_pose_from_T(T):
     x = T[0, 3]
     y = T[1, 3]
     z = T[2, 3]
-    phi = np.arctan2(T[2,1],T[2,2])
+    phi = get_euler_angles_from_T(T)[1]
 
     return (x, y, z, phi)
 

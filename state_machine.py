@@ -94,44 +94,46 @@ class StateMachine():
     def pick(self, point):
 
         # go above the block
-        goal_pose1 = [point[0], point[1], point[2] + 100, -np.pi/2]
+        goal_pose1 = [point[0], point[1], point[2] - .01, -np.pi/2]
         success1, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1) 
-        joint_angles1 = joint_angles1[0,:].T
+        joint_angles1 = np.asarray(joint_angles1)[1,:].tolist()
         # list(np.array(joint_angles1).reshape(-1,))
 
         # grab block
-        goal_pose2 = [point[0], point[1], point[2] - 100, -np.pi/2]
+        goal_pose2 = [point[0], point[1], point[2] + .05, -np.pi/2]
         success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2)
-        joint_angles2 = joint_angles2[0,:].T
+        joint_angles2 = np.asarray(joint_angles2)[1,:].tolist()
+        
         # list(np.array(joint_angles2).reshape(-1,))
 
         if not (success1 and success2):
-            print("No IK solution found during PICK")
+            print("ERROR: NO SOLUTION FOUND FOR IK")
             return
-        print(joint_angles1)
-        self.waypoints = [joint_angles1, joint_angles2, joint_angles1]
-        self.gripper_waypoints = [0, 1, 1]
-        print(self.waypoints)
+        # print out first Joint Waypoints
+        print('JOINT ANGLES (PICK):')
+        print(np.array(joint_angles1) * 180/np.pi)
+        self.waypoints = [joint_angles1, joint_angles1, joint_angles2, joint_angles1]
+        self.gripper_waypoints = [1, 1, 0, 0]
         self.next_state = 'execute'
 
     def place(self, point):
         
         # go above the desired location
-        goal_pose1 = [point[0], point[1], point[2] + 100, -np.pi/2]
+        goal_pose1 = [point[0], point[1], point[2] + .01, -np.pi/2]
         success1, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1)
-        joint_angles1 = joint_angles1[0,:].tolist()
+        joint_angles1 = np.asarray(joint_angles1)[1,:].tolist()
         
         # release
-        goal_pose2 = [point[0], point[1], point[2] - 100, -np.pi/2]
+        goal_pose2 = [point[0], point[1], point[2] - .01, -np.pi/2]
         success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2)
-        joint_angles2 = joint_angles2[0,:].tolist()
+        joint_angles2 = np.asarray(joint_angles2)[1,:].tolist()
 
         if not (success1 and success2):
-            print("No IK solution found during PLACE")
+            print("ERROR: NO SOLUTION FOUND FOR IK")
             return
 
-        self.waypoints = [joint_angles1, joint_angles2, joint_angles1]
-        self.gripper_waypoints = [1, 0, 0]
+        self.waypoints = [joint_angles1, joint_angles1, joint_angles2, joint_angles1]
+        self.gripper_waypoints = [0, 0, 1, 1]
         print(self.waypoints)
         self.next_state = 'execute'
 
@@ -227,8 +229,6 @@ class StateMachine():
 
             for joint_positions, gripper_open in zip(self.waypoints, self.gripper_waypoints):
                 # execute to next state
-                print('moving to: ' + str(joint_positions))
-                print('gripper state: ' + str(gripper_open))
 
                 # check for estop state change
                 if self.current_state == "estop":

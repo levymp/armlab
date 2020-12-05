@@ -145,7 +145,6 @@ class RXArm(InterbotixRobot):
 
         # set acceleration time
         self.accel_time = self.moving_time * self.accel_percent
-        print(self.moving_time)
         # set joint positions
         self.set_joint_positions(joint_positions, moving_time=self.moving_time, accel_time=self.accel_time, blocking=True)
 

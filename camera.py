@@ -155,10 +155,10 @@ class Camera():
       # get rotation from quaternion 
       # rotate from camera -> AR Tag Frame
       rotation = R.from_quat(orientation)
-      print('EULER ANGLES (XYZ):')
-      print(rotation.as_euler('xyz', degrees=True))
+      # print('EULER ANGLES (XYZ):')
+      # print(rotation.as_euler('xyz', degrees=True))
       # rotation from AR Tag Frame -> World Frame 
-      rotation_ttw = R.from_euler('xz', [180,90], degrees=True)
+      rotation_ttw = R.from_euler('xz', [180,-90], degrees=True)
       rotation_ttw = rotation_ttw.as_dcm()
       rotation = rotation.as_dcm()
       
@@ -191,8 +191,6 @@ class Camera():
         """
         pts1 = coord1[0:3].astype(np.float32)
         pts2 = coord2[0:3].astype(np.float32)
-        print(pts1)
-        print(pts2)
         return cv2.getAffineTransform(pts1, pts2)
 
 
@@ -210,6 +208,10 @@ class Camera():
         return frame
 
     def pointToWorld(self, pt):
+        # check if calibrated
+        if not self.calibrate:
+          return np.zeros((4,1))
+
         depth = float(self.DepthFrameRaw[pt[1], pt[0]]) * .001
         pt = np.array([[pt[0]],[pt[1]],[1]])
         cameraframe = depth * np.matmul(np.linalg.inv(self.intrinsic_matrix), pt)
@@ -260,8 +262,8 @@ class Camera():
         box = np.intp(box)
         mu = cv2.moments(contours[mincon])
         mc = (int(mu['m10'] / (mu['m00'] + 1e-5)), int(mu['m01'] / (mu['m00'] + 1e-5)))
-        print("mc",mc)
-        print(self.pointToWorld(mc))
+        # print(f'BLOCK MASS CENTER: {mc}')
+        # print(f'BLOCK COORDINATES: {self.pointToWorld(mc)}')
         self.block_detections = mc
         self.block_contours = [box]
 

@@ -12,6 +12,7 @@ os.sys.path.append(os.path.realpath(script_path + '/../'))
 from kinematics import *
 from config_parse import *
 from copy import deepcopy
+import numpy as np
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -24,32 +25,36 @@ if __name__ == '__main__':
 
     dh_params = parse_dh_param_file(args['dhconfig'])
 
-    ### Add arm configurations to test here
-    fk_angles = [[0.0,  0.0, 0.0, 0.0, 0.0],
-                [ 0.0,  0.0, 0.0, 1.0, 0.0]]    
-    print('Test FK')
-    fk_poses = []
-    for joint_angles in fk_angles:
-        print('Joint angles:', joint_angles)
-        for i, _ in enumerate(joint_angles):
-            pose = get_pose_from_T(FK_dh(deepcopy(dh_params), joint_angles, i))
-            print('Link {} pose: {}'.format(i, pose))
-            if i == len(joint_angles)-1:
-                fk_poses.append(pose)
-        print()
+    # ### Add arm configurations to test here
+    # fk_angles = [[0.0,  0.0, 0.0, 0.0, 0.0],
+    #             [ 0.0,  0.0, 0.0, 1.0, 0.0]]    
+    # print('Test FK')
+    # fk_poses = []
+    # for joint_angles in fk_angles:
+    #     print('Joint angles:', joint_angles)
+    #     for i, _ in enumerate(joint_angles):
+    #         pose = get_pose_from_T(FK_dh(deepcopy(dh_params), joint_angles, i))
+    #         print('Link {} pose: {}'.format(i, pose))
+    #         if i == len(joint_angles)-1:
+    #             fk_poses.append(pose)
+    #     print()
 
     print('Test IK')
-    for pose, angles in zip(fk_poses, fk_angles):
-        matching_angles = False
+    poses = [[0.17, 0.2, -.11, -np.pi/2]]
+    for pose in poses:
+        # matching_angles = False
         print('Pose: {}'.format(pose))
         success, options = IK_geometric(deepcopy(dh_params), pose)
+        options = np.asarray(options).tolist()
         for i, joint_angles in enumerate(options):
             print('Option {}: {}'.format(i, joint_angles))
-            compare = vclamp(joint_angles - angles)
-            if np.allclose(compare, np.zeros_like(compare), rtol=1e-3, atol=1e-4):
-                print('Option {} matches angles used in FK'.format(i))
-                matching_angles = True
-        if not matching_angles:
-            print('No match to the FK angles found!')
-            passed = False
+            pose = get_pose_from_T(FK_dh(deepcopy(dh_params), joint_angles, 4))
+            print('Link {} pose: {}'.format(4, pose))
+                            # compare = vclamp(joint_angles - angles)
+            # if np.allclose(compare, np.zeros_like(compare), rtol=1e-3, atol=1e-4):
+            #     print('Option {} matches angles used in FK'.format(i))
+            #     matching_angles = True
+        # if not matching_angles:
+        #     print('No match to the FK angles found!')
+        #     passed = False
         print()

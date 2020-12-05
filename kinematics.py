@@ -179,7 +179,6 @@ def IK_geometric(dh_params, pose, theta5=0):
     @return     All four possible joint configurations in a numpy array 4x4 where each row is one possible joint
                 configuration
     """
-    print("IK Called")
     x = pose[0]
     y = pose[1]
     z = pose[2]
@@ -221,8 +220,8 @@ def IK_geometric(dh_params, pose, theta5=0):
 
     theta4_s1 = phi - clamp(sum([theta2_s1, theta3_s1]))
     theta4_s2 = phi - clamp(sum([theta2_s2, theta3_s2]))
-    theta4_s3 = np.pi + phi - clamp(theta2_s3 + theta3_s3)
-    theta4_s4 = np.pi + phi - clamp(theta2_s4 + theta3_s4)
+    theta4_s3 = phi - clamp(theta2_s3 + theta3_s3)
+    theta4_s4 = phi - clamp(theta2_s4 + theta3_s4)
 
     theta2_s1 -= t2
     theta2_s2 -= t2

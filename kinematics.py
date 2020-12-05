@@ -196,15 +196,17 @@ def IK_geometric(dh_params, pose, theta5=0):
     t2 = dh_params[1,3]
     t3 = dh_params[2,3]
 
+    #print(np.arctan2(y,x))
     theta1_s1 = clamp(np.arctan2(y,x)) # base rotation
     theta1_s2 = clamp(np.pi + theta1_s1) # second solution to theta 1
     
     # By convention, we will define the first solution as smallest angle
     swapped = False
     if(abs(theta1_s1) > abs(theta1_s2)):
-        tmp = theta1_s2
-        theta1_s2 = theta1_s1
-        theta1_s1 = tmp
+    #    tmp = theta1_s2
+    #    theta1_s2 = theta1_s1
+    #    theta1_s1 = tmp
+        swapped = True
 
     k = np.sign(x)*np.sqrt((x**2 + y**2)) # length along x-y
     ok = k - l4*np.cos(phi)

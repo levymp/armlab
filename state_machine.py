@@ -94,20 +94,31 @@ class StateMachine():
     def pick(self, point):
         print("angle", self.camera.block_contours)
         # go above the block
-        goal_pose1 = [point[0], point[1], point[2] + .1, -np.pi/2]
-        dx =  self.camera.block_contours[0][2][0] - self.camera.block_contours[0][1][0]
-        dy =  self.camera.block_contours[0][2][1] - self.camera.block_contours[0][1][1]
+        found = False
+        i = 0
+        self.phi = -np.pi/2
+        while (not found) and (i<=5):
+            goal_pose1 = [point[0], point[1], point[2] + .1, self.phi]
+            dx =  self.camera.block_contours[0][2][0] - self.camera.block_contours[0][1][0]
+            dy =  self.camera.block_contours[0][2][1] - self.camera.block_contours[0][1][1]
 
-        t5 = np.arctan2(dy,dx) + np.arctan2(point[1],point[0])
-        print("t5", t5)
-        success1, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1, t5[0]) 
-        joint_angles1 = np.asarray(joint_angles1)[1,:].tolist()
-        # list(np.array(joint_angles1).reshape(-1,))
+            t5 = np.arctan2(dy,dx) + np.arctan2(point[1],point[0])
+            print("t5", t5)
+            success1, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1, t5[0]) 
+            joint_angles1 = np.asarray(joint_angles1)[1,:].tolist()
+            # list(np.array(joint_angles1).reshape(-1,))
 
-        # grab block
-        goal_pose2 = [point[0], point[1], point[2], -np.pi/2]
-        success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2, t5[0])
-        joint_angles2 = np.asarray(joint_angles2)[1,:].tolist()
+            # grab block
+            goal_pose2 = [point[0], point[1], point[2], self.phi]
+            success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2, t5[0])
+            joint_angles2 = np.asarray(joint_angles2)[1,:].tolist()
+            if not (success1 and success2):
+                print("ERROR: NO SOLUTION FOUND FOR IK")
+            else:
+                found = True
+            i += 1
+            self.phi += .25
+
         
         # list(np.array(joint_angles2).reshape(-1,))
 
@@ -124,12 +135,12 @@ class StateMachine():
     def place(self, point):
         
         # go above the desired location
-        goal_pose1 = [point[0], point[1], point[2] + .1, -np.pi/2]
+        goal_pose1 = [point[0], point[1], point[2] + .1, self.phi]
         success1, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1)
         joint_angles1 = np.asarray(joint_angles1)[1,:].tolist()
         
         # release
-        goal_pose2 = [point[0], point[1], point[2] + .05, -np.pi/2]
+        goal_pose2 = [point[0], point[1], point[2] + .05, self.phi]
         success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2)
         joint_angles2 = np.asarray(joint_angles2)[1,:].tolist()
 

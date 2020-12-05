@@ -48,6 +48,7 @@ def FK_dh(dh_params, joint_angles, link):
     @return     a transformation matrix representing the pose of the desired link
     """
     H_mat = np.eye(4)
+    joint_angles[1] *= -1.0
 
     for l in range(link):
         H_mat = H_mat*get_transform_from_dh(dh_params[l, 0], dh_params[l, 1], dh_params[l, 2], joint_angles[l] + dh_params[l,3])
@@ -114,7 +115,7 @@ def get_pose_from_T(T):
     x = T[0, 3]
     y = T[1, 3]
     z = T[2, 3]
-    phi = get_euler_angles_from_T(T)[1]
+    phi = -get_euler_angles_from_T(T)[1]
 
     return (x, y, z, phi)
 
@@ -183,7 +184,7 @@ def IK_geometric(dh_params, pose, theta5=0):
     y = pose[1]
     z = pose[2]
     phi = pose[3]
-    
+    theta5 = clamp(theta5)
     l1 = dh_params[0,0] # link 1 length
     l2 = dh_params[1,0] # link 2 length
     l3 = dh_params[2,0] # link 3 length
@@ -233,10 +234,10 @@ def IK_geometric(dh_params, pose, theta5=0):
     theta3_s3 -= t3
     theta3_s4 -= t3
 
-    solution_matrix = np.matrix([[theta1_s1, theta2_s1, theta3_s1, theta4_s1, theta5],
-                                 [theta1_s1, theta2_s2, theta3_s2, theta4_s2, theta5],
-                                 [theta1_s2, theta2_s3, theta3_s3, theta4_s3, theta5],
-                                 [theta1_s2, theta2_s4, theta3_s4, theta4_s4, theta5]])
+    solution_matrix = np.matrix([[theta1_s1, -theta2_s1, theta3_s1, theta4_s1, theta5],
+                                 [theta1_s1, -theta2_s2, theta3_s2, theta4_s2, theta5],
+                                 [theta1_s2, -theta2_s3, theta3_s3, theta4_s3, theta5],
+                                 [theta1_s2, -theta2_s4, theta3_s4, theta4_s4, theta5]])
 
     solution_matrix = clamp_mtx(solution_matrix)
 

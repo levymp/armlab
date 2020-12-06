@@ -145,7 +145,7 @@ class StateMachine():
             # list(np.array(joint_angles1).reshape(-1,))
 
             # grab block
-            goal_pose2 = [point[0], point[1], point[2], self.phi]
+            goal_pose2 = [point[0], point[1], point[2] - .03, self.phi]
             success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2, t5[0])
             # joint_angles2 = np.asarray(joint_angles2)[0,:].tolist()
             if not (success1 and success2):
@@ -162,8 +162,8 @@ class StateMachine():
             print("ERROR: NO SOLUTION FOUND FOR IK")
             return
         # print out first Joint Waypoints
-        print('JOINT ANGLES (PICK):')
-        print(np.array(joint_angles1) * 180/np.pi)
+        print('JOINT ANGLES 2 (PICK):')
+        print(np.array(joint_angles2) * 180/np.pi)
         self.waypoints = [joint_angles1, joint_angles1, joint_angles2, joint_angles1]
         self.gripper_waypoints = [1, 1, 0, 0]
         self.next_state = 'execute'
@@ -294,9 +294,9 @@ class StateMachine():
                 if prev_gripper_open != gripper_open:
                     # change gripper state to new state
                     if gripper_open:
-                        self.rxarm.open_gripper()
+                        self.rxarm.open_gripper(1.5)
                     else:
-                        self.rxarm.close_gripper()
+                        self.rxarm.close_gripper(1.5)
 
                 # overwrite old gripper open bool
                 prev_gripper_open = gripper_open

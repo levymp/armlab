@@ -178,12 +178,17 @@ class Camera():
       # rotate from camera -> AR Tag Frame
       rotation = R.from_quat(orientation)
       
-      # print('EULER ANGLES (XYZ):')
-      # print(rotation.as_euler('xyz', degrees=True))
-      # rotation from AR Tag Frame -> World Frame 
-      rotation_ttw = R.from_euler('xz', [180,-90], degrees=True)
+      print('EULER ANGLES (XYZ):')
+      print(rotation.as_euler('xyz', degrees=True))
+      # rotation from AR Tag Frame -> World Frame
+      re = rotation.as_euler('xyz', degrees=True)
+      re[0] = 180
+      re[1] = 0
+      re[2] -= 90
+      rnew = R.from_euler('xyz', re, degrees=True)
+      rotation_ttw = R.from_euler('xz', [180,90], degrees=True)
       rotation_ttw = rotation_ttw.as_dcm()
-      rotation = rotation.as_dcm()
+      rotation = rnew.as_dcm()
       
       # rotation from World -> Camera Frame
       #rotation = np.matmul(rotation_ttw, rotation)
@@ -191,7 +196,7 @@ class Camera():
       # get translation from pose of april-tag
       translation = position 
       # form Transform
-      holo = np.hstack((rotation_ttw, np.transpose([translation])))
+      holo = np.hstack((rotation, np.transpose([translation])))
       self.rgb2world = np.vstack((holo, np.array([0, 0, 0, 1])))
       # add in 
       self.rgb2world = np.linalg.inv(self.rgb2world)

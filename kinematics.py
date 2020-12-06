@@ -28,6 +28,15 @@ def clamp(angle):
 
 clamp_mtx = np.vectorize(clamp)
 
+def limit_joint(angle, limits):
+    angle = clamp(angle)
+    min_angle = clamp(limits[0])
+    max_angle = clamp(limits[1])
+    if angle < min_angle or angle > max_angle:
+        return np.nan
+    else:
+        return angle
+
 def FK_dh(dh_params, joint_angles, link):
     """!
     @brief      Get the 4x4 transformation matrix from link to world
@@ -203,14 +212,15 @@ def IK_geometric(dh_params, pose, theta5=0):
     # By convention, we will define the first solution as smallest angle
     swapped = False
     if(abs(theta1_s1) > abs(theta1_s2)):
-    #    tmp = theta1_s2
-    #    theta1_s2 = theta1_s1
-    #    theta1_s1 = tmp
-        swapped = True
+       tmp = theta1_s2
+       theta1_s2 = theta1_s1
+       theta1_s1 = tmp
+       swapped = True
 
     k = np.sign(x)*np.sqrt((x**2 + y**2)) # length along x-y
     ok = k - l4*np.cos(phi)
     ok2 = -ok
+    
     oz = z - l4*np.sin(phi)
     
     theta2_s1, theta3_s1, theta2_s2, theta3_s2 = IK_2DOF(ok,oz,l2,l3)
@@ -221,10 +231,11 @@ def IK_geometric(dh_params, pose, theta5=0):
     theta3_s3 = -theta3_s1
     theta3_s4 = -theta3_s2
 
+    # theta2_s3, theta3_s3, theta2_s4, theta3_s4 = IK_2DOF(ok2,oz,l2,l2)
     theta4_s1 = phi - clamp(sum([theta2_s1, theta3_s1]))
     theta4_s2 = phi - clamp(sum([theta2_s2, theta3_s2]))
-    theta4_s3 = phi - clamp(theta2_s3 + theta3_s3)
-    theta4_s4 = phi - clamp(theta2_s4 + theta3_s4)
+    theta4_s3 = np.pi - phi - clamp(theta2_s3 + theta3_s3)
+    theta4_s4 = np.pi - phi - clamp(theta2_s4 + theta3_s4)
 
     theta2_s1 -= t2
     theta2_s2 -= t2
@@ -236,18 +247,37 @@ def IK_geometric(dh_params, pose, theta5=0):
     theta3_s3 -= t3
     theta3_s4 -= t3
 
-    solution_matrix = np.matrix([[theta1_s1, -theta2_s1, theta3_s1, theta4_s1, theta5],
-                                 [theta1_s1, -theta2_s2, theta3_s2, theta4_s2, theta5],
-                                 [theta1_s2, -theta2_s3, theta3_s3, theta4_s3, theta5],
-                                 [theta1_s2, -theta2_s4, theta3_s4, theta4_s4, theta5]])
+    theta2_s1 *= -1
+    theta2_s2 *= -1
+    theta2_s3 *= -1
+    theta2_s4 *= -1
+
+    solution_matrix = np.array([[theta1_s1, theta2_s1, theta3_s1, theta4_s1, theta5],
+                                 [theta1_s1, theta2_s2, theta3_s2, theta4_s2, theta5],
+                                 [theta1_s2, theta2_s3, theta3_s3, theta4_s3, theta5],
+                                 [theta1_s2, theta2_s4, theta3_s4, theta4_s4, theta5]])
 
     solution_matrix = clamp_mtx(solution_matrix)
+    # print("SOLN MTX", solution_matrix)
+    joint_limits = np.asarray([[-179.9999,180.0],[-108,113],[-108,93],[-100,123],[-179.9999,180]],dtype=np.float64)
+    joint_limits = np.multiply(joint_limits,np.pi/180.0)
+    # print("JOINT LIMITS", joint_limits)
+    for soln in range(4):
+        for joint in range(5):
+            if not np.isnan(solution_matrix[soln,joint]):
+                solution_matrix[soln,joint] = limit_joint(solution_matrix[soln,joint], joint_limits[joint]) 
+    
 
     # check if all results are nan
     if np.isnan(theta4_s1) and np.isnan(theta4_s2) and np.isnan(theta4_s3) and np.isnan(theta4_s4):
         print("NO SOLUTION FOUND")
         return False, solution_matrix
 
+    res = solution_matrix[~np.isnan(solution_matrix).any(axis=1)]
+    print("RES",res)
+    print(len(res))
+    if len(res) == 0:
+        return False, res
     # fk_poses = []
     # for joint_angles in solution_matrix.tolist():
     #     print('Joint angles:', joint_angles)
@@ -257,4 +287,4 @@ def IK_geometric(dh_params, pose, theta5=0):
     #             print('Link {} pose: {}'.format(i, pose))
     #             fk_poses.append(pose)
     #     print()
-    return True, solution_matrix
+    return True, res.tolist()[0]

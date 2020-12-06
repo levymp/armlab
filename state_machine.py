@@ -9,7 +9,8 @@ import rospy
 import subprocess
 import os
 from dance import dance_waypoints, dance_gripper
-
+from datetime import datetime
+from pytz import timezone
 
 
 class StateMachine():
@@ -33,6 +34,8 @@ class StateMachine():
         self.current_state = "idle"
         self.next_state = "idle"
         self.waypoints = []
+        self.record_endeffector_position = False
+        self.endeffector_positions = []
 
         self.gripper_waypoints = []
 
@@ -87,9 +90,42 @@ class StateMachine():
 
         if self.next_state == "place":
             self.place_idle()
+        
+        if self.next_state == "record_ee":
+            self.record_ee()
+
+        if self.next_state == 'save_ee':
+            self.save_ee()
+            
 
 
     """Functions run for each state"""
+
+    def record_ee(self):
+        # start recording the endeffector position
+        self.record_endeffector_position = True
+        self.current_state = "record_ee"
+        self.next_state = "idle"
+
+
+    def save_ee(self):
+        # set current and next state
+        self.current_state = "save_ee"
+        
+            
+        # get current time/date for filename
+        date = datetime.now(tz=timezone('US/Eastern'))
+        file_name = date.strftime('%Y-%m-%d-%H:%M:%S')
+        # create pandas df
+        # create new lookup
+        keys = ['X', 'Y', 'Z', 'PHI', 'THETA', 'PSI', 'TIME']
+        
+        df = pd.DataFrame(self.endeffector_positions, columns=keys)
+        df.to_pickle(os.path.join(os.getcwd(), file_name))
+        # print(f'JUST SAVED DATA TO {file_name}')
+        self.record_endeffector_position = False
+        self.next_state = "idle"
+
 
     def pick(self, point):
         print("angle", self.camera.block_contours)
@@ -99,19 +135,19 @@ class StateMachine():
         self.phi = -np.pi/2
         while (not found) and (i<=5):
             goal_pose1 = [point[0], point[1], point[2] + .1, self.phi]
-            dx =  self.camera.block_contours[0][2][0] - self.camera.block_contours[0][1][0]
-            dy =  self.camera.block_contours[0][2][1] - self.camera.block_contours[0][1][1]
+            dx =  self.camera.block_contours[0][0][0] - self.camera.block_contours[0][1][0]
+            dy =  self.camera.block_contours[0][0][1] - self.camera.block_contours[0][1][1]
 
             t5 = np.arctan2(dy,dx) + np.arctan2(point[1],point[0])
             print("t5", t5)
             success1, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1, t5[0]) 
-            joint_angles1 = np.asarray(joint_angles1)[1,:].tolist()
+            # joint_angles1 = np.asarray(joint_angles1)[0,:].tolist()
             # list(np.array(joint_angles1).reshape(-1,))
 
             # grab block
             goal_pose2 = [point[0], point[1], point[2], self.phi]
             success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2, t5[0])
-            joint_angles2 = np.asarray(joint_angles2)[1,:].tolist()
+            # joint_angles2 = np.asarray(joint_angles2)[0,:].tolist()
             if not (success1 and success2):
                 print("ERROR: NO SOLUTION FOUND FOR IK")
             else:
@@ -137,12 +173,12 @@ class StateMachine():
         # go above the desired location
         goal_pose1 = [point[0], point[1], point[2] + .1, self.phi]
         success1, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1)
-        joint_angles1 = np.asarray(joint_angles1)[1,:].tolist()
+        # joint_angles1 = np.asarray(joint_angles1)[0,:].tolist()
         
         # release
         goal_pose2 = [point[0], point[1], point[2] + .05, self.phi]
         success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2)
-        joint_angles2 = np.asarray(joint_angles2)[1,:].tolist()
+        # joint_angles2 = np.asarray(joint_angles2)[0,:].tolist()
 
         if not (success1 and success2):
             print("ERROR: NO SOLUTION FOUND FOR IK")

@@ -100,15 +100,28 @@ class Gui(QMainWindow):
         self.ui.btnUser4.setText('Execute')
         self.ui.btnUser4.clicked.connect(partial(nxt_if_arm_init, 'execute'))
         
-        # teach
-        self.ui.btnUser5.setText('Save State Open')
-        # append state to waypoints list
-        self.ui.btnUser5.clicked.connect(lambda : self.sm.set_next_state('append_state_open'))
+        # # teach
+        # self.ui.btnUser5.setText('Save State Open')
+        # # append state to waypoints list
+        # self.ui.btnUser5.clicked.connect(lambda : self.sm.set_next_state('append_state_open'))
+        
+        # # teach
+        # self.ui.btnUser6.setText('Save State Closed')
+        # # append state to waypoints list
+        # self.ui.btnUser6.clicked.connect(lambda : self.sm.set_next_state('append_state_closed'))
 
-        # teach
-        self.ui.btnUser6.setText('Save State Closed')
+        # Start recording EE
+        self.ui.btnUser5.setText('Begin EE Record')
         # append state to waypoints list
-        self.ui.btnUser6.clicked.connect(lambda : self.sm.set_next_state('append_state_closed'))
+        self.ui.btnUser5.clicked.connect(lambda : self.sm.set_next_state('record_ee'))
+        
+        # End recording EE
+        self.ui.btnUser6.setText('Save EE Record')
+        # append state to waypoints list
+        self.ui.btnUser6.clicked.connect(lambda : self.sm.set_next_state('save_ee'))
+
+
+
 
         # Clear Waypoints
         self.ui.btnUser7.setText('Reset Waypoints')
@@ -171,7 +184,14 @@ class Gui(QMainWindow):
         self.ui.rdoutPhi.setText(str("%+.2f rad" % (pos[3])))
         self.ui.rdoutTheta.setText(str("%+.2f" % (pos[4])))
         self.ui.rdoutPsi.setText(str("%+.2f" % (pos[5])))
-    
+        # for recording data 
+        if self.sm.record_endeffector_position:
+            # append time
+            pos.append(time.time())
+            # append to list of measurements
+            self.sm.endeffector_positions.append(pos)
+
+
     @pyqtSlot(QImage, QImage, QImage)
     def setImage(self, rgb_image, depth_image, tag_image):
         """!

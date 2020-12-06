@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     ### Add arm configurations to test here
     fk_angles = [[0.0,  0.0, 0.0, 0.0, 0.0],
-                [ 0.0,  0.0, 0.0, 1.0, 0.0]]    
+                [ -1.64,  -.007, -.45, -.71, 0.0]]    
     print('Test FK')
     fk_poses = []
     for joint_angles in fk_angles:
@@ -45,10 +45,15 @@ if __name__ == '__main__':
         matching_angles = False
         print('Pose: {}'.format(pose))
         success, options = IK_geometric(deepcopy(dh_params), pose)
+        options = np.asarray(options).tolist()
         for i, joint_angles in enumerate(options):
             print('Option {}: {}'.format(i, joint_angles))
+            
+            loc = get_pose_from_T(FK_dh(deepcopy(dh_params), joint_angles, 4))
+            print('Link {} pose: {}'.format(4, loc))
+
             if success:
-                compare = vclamp(joint_angles - angles)
+                compare = vclamp(np.asarray(joint_angles) - angles)
                 if np.allclose(compare, np.zeros_like(compare), rtol=1e-3, atol=1e-4):
                     print('Option {} matches angles used in FK'.format(i))
                     matching_angles = True

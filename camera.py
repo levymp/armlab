@@ -43,6 +43,7 @@ class Camera():
         self.rgb_click_points = np.zeros((5,2),int)
         self.depth_click_points = np.zeros((5,2),int)
         self.tag_detections = np.array([])
+        self.not_calibrate_msg = False
         # AR Tag information
         self.ar_tag_detections = []
         self.tag_1_wf_pose = np.array([[-.1416], [0], [-.06691], [0]])
@@ -141,6 +142,7 @@ class Camera():
       position = np.array([0.0, 0.0, 0.0])
       orientation = np.array([0.0, 0.0, 0.0, 0.0])
 
+      # go through all detections and add them to the position/orientation
       for detection in self.ar_tag_detections:
         for i in range(4):
           if i < 3:
@@ -152,9 +154,30 @@ class Camera():
       # get position/orientation of AR Tag for this detection
       position = position/100
       orientation = orientation/100
+      
+      
+      # # get depth from AR Tag calc 
+      # tagDetectionZ = position[2]
+      
+      
+      # # find pixel location
+      # tag_pixel = (1/tagDetectionZ) * np.matmul(self.intrinsic_matrix, position)
+      
+      # # from pixel location find depth
+      # depthZ = float(self.DepthFrameRaw[tag_pixel[1], tag_pixel[0]]) * .001
+
+      # print("tag_pixel: {tag_pixel}".format(tag_pixel=tag_pixel))
+      # print('AR TAG DEPTH: {tagDetectionZ}'.format(tagDetectionZ=tagDetectionZ))
+      # print('DEPTH CAMERA DEPTH: {depthZ}'.format(depthZ=depthZ))
+
+
+
+
+      
       # get rotation from quaternion 
       # rotate from camera -> AR Tag Frame
       rotation = R.from_quat(orientation)
+      
       # print('EULER ANGLES (XYZ):')
       # print(rotation.as_euler('xyz', degrees=True))
       # rotation from AR Tag Frame -> World Frame 
@@ -173,7 +196,7 @@ class Camera():
       # add in 
       self.rgb2world = np.linalg.inv(self.rgb2world)
 
-      self.calibrated = True
+      self.cameraCalibrated = True
       return True
     
 
@@ -209,13 +232,23 @@ class Camera():
 
     def pointToWorld(self, pt):
         # check if calibrated
-        if not self.calibrate:
+        if not self.cameraCalibrated and not self.not_calibrate_msg:
+          print('CAMERA NOT CALIBRATED!')
+          # already sent a message
+          self.not_calibrate_msg = True
           return np.zeros((4,1))
-
+        
+        # calculate the depth
         depth = float(self.DepthFrameRaw[pt[1], pt[0]]) * .001
+        
+        # set pixels pixels
         pt = np.array([[pt[0]],[pt[1]],[1]])
+
+        # calculate the camera frame 4x1
         cameraframe = depth * np.matmul(np.linalg.inv(self.intrinsic_matrix), pt)
         cameraframe = np.vstack((cameraframe, np.array([1])))
+        
+        # calculate the world frame
         world = np.matmul(self.rgb2world, cameraframe)
         world = world + self.tag_1_wf_pose
         return world
@@ -227,6 +260,7 @@ class Camera():
                     TODO: Implement your block detector here. You will need to locate blocks in 3D space and put their XYZ
                     locations in self.block_detections
         """
+
         rgbimg = self.VideoFrame
         h,w,c = rgbimg.shape
         point = self.last_click

@@ -194,6 +194,8 @@ def IK_geometric(dh_params, pose, theta5=0):
     z = pose[2]
     phi = pose[3]
     theta5 = clamp(theta5)
+    if(abs(phi) < np.pi/6):
+        theta5 = 0
     l1 = dh_params[0,0] # link 1 length
     l2 = dh_params[1,0] # link 2 length
     l3 = dh_params[2,0] # link 3 length

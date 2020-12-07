@@ -157,41 +157,39 @@ class Camera():
       
       
       # # get depth from AR Tag calc 
-      # tagDetectionZ = position[2]
+      tagDetectionZ = position[2]
       
       
       # # find pixel location
-      # tag_pixel = (1/tagDetectionZ) * np.matmul(self.intrinsic_matrix, position)
-      
+      tag_pixel = (1/tagDetectionZ) * np.matmul(self.intrinsic_matrix, position)
+
       # # from pixel location find depth
-      # depthZ = float(self.DepthFrameRaw[tag_pixel[1], tag_pixel[0]]) * .001
+      depthZ = float(self.DepthFrameRaw[int(tag_pixel[1]), int(tag_pixel[0])]) * .001
 
-      # print("tag_pixel: {tag_pixel}".format(tag_pixel=tag_pixel))
-      # print('AR TAG DEPTH: {tagDetectionZ}'.format(tagDetectionZ=tagDetectionZ))
-      # print('DEPTH CAMERA DEPTH: {depthZ}'.format(depthZ=depthZ))
+      print('AR TAG DEPTH: {tagDetectionZ}'.format(tagDetectionZ=tagDetectionZ))
+      print('DEPTH CAMERA DEPTH: {depthZ}'.format(depthZ=depthZ))
 
+      position[2] = depthZ
 
-
-
-      
       # get rotation from quaternion 
       # rotate from camera -> AR Tag Frame
       rotation = R.from_quat(orientation)
-      
-      print('EULER ANGLES (XYZ):')
-      print(rotation.as_euler('xyz', degrees=True))
+
       # rotation from AR Tag Frame -> World Frame
       re = rotation.as_euler('xyz', degrees=True)
       re[0] = 180
       re[1] = 0
       re[2] -= 90
       rnew = R.from_euler('xyz', re, degrees=True)
-      rotation_ttw = R.from_euler('xz', [180,90], degrees=True)
-      rotation_ttw = rotation_ttw.as_dcm()
+
+      # set rotation matrix (old approach)
+      # rotation_ttw = R.from_euler('xz', [180,90], degrees=True)
+      # rotation_ttw = rotation_ttw.as_dcm()
+
       rotation = rnew.as_dcm()
-      
+
       # rotation from World -> Camera Frame
-      #rotation = np.matmul(rotation_ttw, rotation)
+      # rotation = np.matmul(rotation_ttw, rotation)
 
       # get translation from pose of april-tag
       translation = position 
@@ -237,10 +235,11 @@ class Camera():
 
     def pointToWorld(self, pt):
         # check if calibrated
-        if not self.cameraCalibrated and not self.not_calibrate_msg:
-          print('CAMERA NOT CALIBRATED!')
-          # already sent a message
-          self.not_calibrate_msg = True
+        if not self.cameraCalibrated:
+          if not self.not_calibrate_msg:
+            print('CAMERA NOT CALIBRATED!')
+            # already sent a message
+            self.not_calibrate_msg = True
           return np.zeros((4,1))
         
         # calculate the depth
@@ -257,6 +256,50 @@ class Camera():
         world = np.matmul(self.rgb2world, cameraframe)
         world = world + self.tag_1_wf_pose
         return world
+    
+    def detectAll(self):
+        # current rgb image
+        rgbimg = self.VideoFrame
+        depthimg = self.DepthFrameRaw 
+
+        # height/width/rgb shape
+        h,w,c = rgbimg.shap
+        
+        pass
+    
+    # rank all takes in all blocks and outputs 
+ 
+
+      # priority queue of next block to grab?
+        # prioritized differently based on competition
+
+      # dictionary: Pixel (u, v, z)
+      #             position (x,y,z)
+                    # reachable?
+                    # Color str
+                    # Sorted bool
+
+      # 
+
+      # stateMachine Comp (order of blocks, stack?=Bool)
+        # detectall
+        # if stack? 
+        # use same pixel 
+        # else: start at inital pixel and offset accordingly after each placement
+
+
+      # stateMachine Event3
+      
+      
+      # event 2 pick/stack
+        # 3 blocks (unstacked) > 2.5 cm apart
+        # stack on other side of board
+        # 
+    
+
+
+
+
 
     def blockDetector(self):
         """!
@@ -266,13 +309,24 @@ class Camera():
                     locations in self.block_detections
         """
 
+        # current rgb image
         rgbimg = self.VideoFrame
+        
+        # height/width/rgb shape
         h,w,c = rgbimg.shape
+
+        # get pixel coordinate of last click
         point = self.last_click
+
+        # find rgb image in opencv format
         blocks = cv2.cvtColor(rgbimg, cv2.COLOR_BGR2RGB)
         color = blocks[point[1],point[0], :]
+
+        # average color surrounding point
         avgc = np.array([0,0,0])
+        # average difference in color around a pixel
         adif = np.array([0,0,0])
+        
         sq = 7
         for i in range(sq):
           i = int(i-(i-1)/2)
@@ -280,11 +334,17 @@ class Camera():
             j = int(j-(j-1)/2)
             avgc = avgc + blocks[point[1]+i,point[0]+j, :]
             adif = adif + np.subtract(blocks[point[1]+i,point[0]+j, :], color)
+
         avgc = avgc/(sq*sq)
         adif = 10+adif/(sq*sq*20)
+        
+        # range of colors block exists in
         colorlow = np.array([avgc[0]-(adif[0]), avgc[1]-(adif[1]), avgc[2]-(adif[2])])
         colorhigh = np.array([avgc[0]+(adif[0]), avgc[1]+(adif[1]), avgc[2]+(adif[2])])
+
+
         mask = cv2.blur(cv2.inRange(blocks, colorlow, colorhigh), (2,2))
+        # trim by min/max color
         im, contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         mindis = 100000
         mincon = None
@@ -301,8 +361,6 @@ class Camera():
         box = np.intp(box)
         mu = cv2.moments(contours[mincon])
         mc = (int(mu['m10'] / (mu['m00'] + 1e-5)), int(mu['m01'] / (mu['m00'] + 1e-5)))
-        # print(f'BLOCK MASS CENTER: {mc}')
-        # print(f'BLOCK COORDINATES: {self.pointToWorld(mc)}')
         self.block_detections = mc
         self.block_contours = [box]
 
@@ -312,6 +370,7 @@ class Camera():
 
                     TODO: Implement a blob detector to find blocks in the depth image
         """
+
         pass
 
 class ImageListener:

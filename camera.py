@@ -17,13 +17,16 @@ from apriltag_ros.msg import *
 from cv_bridge import CvBridge, CvBridgeError
 from scipy.spatial.transform import Rotation as R
 from copy import copy
+import os
+import pandas as pd
+
 
 class Camera():
     """!
     @brief      This class describes a camera.
     """
 
-    def __init__(self):
+    def __init__(self, station):
         """!
         @brief      Constructs a new instance.
         """
@@ -48,15 +51,31 @@ class Camera():
         self.ar_tag_detections = []
         self.tag_1_wf_pose = np.array([[-.1416], [0], [-.06691], [0]])
         self.rgb2world = None
+        self.color = "None"
+        self.colorBases = {
+          'Blue': [150, 60, 0], 
+          'Red': [70, 60, 100],
+          'Green': [100,100,10],
+          'Black': [50,50,20],
+          'Yellow': [170,190,190],
+          'Purple': [118,  52,  59],
+          'Pink': [120,70,160],
+          'Orange': [25,84,200]}
         """ block info """
         self.block_contours = np.array([])
-        self.block_detections = np.array([])
+        self.block_detections = np.array([0,0])
+        os.get_cwd(), 'dim'
+        # get work station dimensions
+        df = pd.read_csv('dimensions.csv', index_col=0).T
+        self.tableDimensions = df.iloc[station]
 
+        
     def processVideoFrame(self):
         """!
         @brief      Process a video frame
         """
         cv2.drawContours(self.VideoFrame,self.block_contours, 0,(255,0,255),3)
+        cv2.putText(self.VideoFrame, self.color, (self.block_detections[0],self.block_detections[1]), cv2.FONT_HERSHEY_SIMPLEX, .5, (255,255,255), 1)
 
     def ColorizeDepthFrame(self):
         """!
@@ -174,12 +193,12 @@ class Camera():
       # get rotation from quaternion 
       # rotate from camera -> AR Tag Frame
       rotation = R.from_quat(orientation)
-
+      print('EULER FROM AR: {rotation}'.format(rotation=rotation.as_euler('xyz', degrees=True)))
       # rotation from AR Tag Frame -> World Frame
       re = rotation.as_euler('xyz', degrees=True)
-      re[0] = 180
+      re[0] = 179
       re[1] = 0
-      re[2] -= 90
+      re[2] -= 93
       rnew = R.from_euler('xyz', re, degrees=True)
 
       # set rotation matrix (old approach)
@@ -363,6 +382,17 @@ class Camera():
         mc = (int(mu['m10'] / (mu['m00'] + 1e-5)), int(mu['m01'] / (mu['m00'] + 1e-5)))
         self.block_detections = mc
         self.block_contours = [box]
+        print(avgc)
+        minnorm = 1000
+        colorName = "None"
+
+        for c in self.colorBases:
+              #print(np.linalg.norm(np.array(self.colorBases[c]) - avgc))
+              if np.linalg.norm(np.array(self.colorBases[c] - avgc)) < minnorm:
+                    minnorm = np.linalg.norm(np.array(self.colorBases[c] - avgc))
+                    colorName = c
+        
+        self.color = colorName
 
     def detectBlocksInDepthImage(self):
         """!

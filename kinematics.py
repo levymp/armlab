@@ -276,8 +276,6 @@ def IK_geometric(dh_params, pose, theta5=0):
         return False, solution_matrix
 
     res = solution_matrix[~np.isnan(solution_matrix).any(axis=1)]
-    print("RES",res)
-    print(len(res))
     if len(res) == 0:
         return False, res
     # fk_poses = []

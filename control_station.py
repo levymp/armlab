@@ -33,7 +33,7 @@ class Gui(QMainWindow):
     Contains the main function and interfaces between the GUI and functions.
     """
 
-    def __init__(self, parent=None, dh_config_file=None):
+    def __init__(self, parent=None, dh_config_file=None, station):
         QWidget.__init__(self,parent)
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
@@ -62,7 +62,9 @@ class Gui(QMainWindow):
         ]
         
         """Objects Using Other Classes"""
-        self.camera = Camera()
+        print('Setting up camera station parameters')
+        self.camera = Camera(station)
+        
         print("Creating rx arm...")
         if(dh_config_file is not None):
             self.rxarm = RXArm(dh_config_file=dh_config_file)
@@ -135,6 +137,10 @@ class Gui(QMainWindow):
         # Dance 
         self.ui.btnUser9.setText('PLACE')
         self.ui.btnUser9.clicked.connect(lambda : self.sm.set_next_state('place'))
+
+        # Dance 
+        self.ui.btnUser10.setText('DANCE BABY!')
+        self.ui.btnUser10.clicked.connect(lambda : self.sm.dance())
 
 
         # Sliders
@@ -267,7 +273,7 @@ class Gui(QMainWindow):
             z = self.camera.DepthFrameRaw[pt.y()][pt.x()]
             self.ui.rdoutMousePixels.setText("(%.0f,%.0f,%.0f)" % (pt.x(), pt.y(), z))
             worldpt = self.camera.pointToWorld([pt.x(), pt.y()])
-            self.ui.rdoutMouseWorld.setText("(%.3f,%.3f,%.3f)" % (worldpt[0], worldpt[1], worldpt[2]))
+            self.ui.rdoutMouseWorld.setText("(%.0f,%.0f,%.0f)" % (worldpt[0]*1000, worldpt[1]*1000, worldpt[2]*1000))
 
     def calibrateMousePress(self, mouse_event):
         """!
@@ -306,7 +312,7 @@ def main(args=None):
     @brief      Starts the GUI
     """
     app = QApplication(sys.argv)
-    app_window = Gui(dh_config_file=args['dhconfig'])
+    app_window = Gui(dh_config_file=args['dhconfig'], station=int(args['station']))
     app_window.show()
     sys.exit(app.exec_())
 
@@ -316,5 +322,5 @@ def main(args=None):
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument("-c", "--dhconfig", required=False, help="path to DH parameters csv file")
-
+    ap.add_argument("-s", "--station", required=True, help="GIVE VALUE OF 1-5")
     main(args=vars(ap.parse_args()))

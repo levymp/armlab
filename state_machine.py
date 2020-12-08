@@ -145,7 +145,7 @@ class StateMachine():
             # list(np.array(joint_angles1).reshape(-1,))
 
             # grab block
-            goal_pose2 = [point[0], point[1], point[2], self.phi]
+            goal_pose2 = [point[0], point[1], point[2] - 0.016, self.phi]
             success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2, t5[0])
             # joint_angles2 = np.asarray(joint_angles2)[0,:].tolist()
             if not (success1 and success2):
@@ -165,31 +165,40 @@ class StateMachine():
             print("ERROR: NO SOLUTION FOUND FOR IK")
             return
         # print out first Joint Waypoints
-        print('JOINT ANGLES 2 (PICK):')
-        print(np.array(joint_angles2) * 180/np.pi)
+        # print('JOINT ANGLES 2 (PICK):')
+        # print(np.array(joint_angles2) * 180/np.pi)
+        print('PICKING Block AT: {goal_pose2}'.format(goal_pose2=goal_pose2))
         self.waypoints = [joint_angles1, joint_angles1, joint_angles2, joint_angles1]
         self.gripper_waypoints = [1, 1, 0, 0]
         self.next_state = 'execute'
 
     def place(self, point):
-        
-        # go above the desired location
-        goal_pose1 = [point[0], point[1], point[2] + .1, self.phi]
-        success1, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1)
-        # joint_angles1 = np.asarray(joint_angles1)[0,:].tolist()
-        
-        # release
-        goal_pose2 = [point[0], point[1], point[2] + .04, self.phi]
-        success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2)
-        # joint_angles2 = np.asarray(joint_angles2)[0,:].tolist()
+        found = False
+        i = 0
+        while not found and i <= 0:
+            # go above the desired location
+            goal_pose1 = [point[0], point[1], point[2] + .1, self.phi]
+            success1, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1)
+            # joint_angles1 = np.asarray(joint_angles1)[0,:].tolist()
+            
+            # release
+            goal_pose2 = [point[0], point[1], point[2] + .025 , self.phi]
+            success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2)
+            # joint_angles2 = np.asarray(joint_angles2)[0,:].tolist()
+
+            if not (success1 and success2):
+                self.phi += np.pi/2
+                i += 1
+            else:
+                found = True
 
         if not (success1 and success2):
             print("ERROR: NO SOLUTION FOUND FOR IK")
             return
 
         self.waypoints = [joint_angles1, joint_angles1, joint_angles2, joint_angles1]
+        print('PLACING AT: {goal_pose2}'.format(goal_pose2=goal_pose2))
         self.gripper_waypoints = [0, 0, 1, 1]
-        print(self.waypoints)
         self.next_state = 'execute'
 
     def pick_idle(self):

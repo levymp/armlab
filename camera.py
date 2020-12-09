@@ -19,7 +19,7 @@ from scipy.spatial.transform import Rotation as R
 from copy import copy
 import os
 import pandas as pd
-
+from kinematics import clamp
 
 class Camera():
     """!
@@ -31,6 +31,7 @@ class Camera():
         @brief      Constructs a new instance.
         """
         self.VideoFrame = np.zeros((480,640,3)).astype(np.uint8)
+        self.MaskFrame = np.zeros((480,640,3)).astype(np.uint8)
         self.TagImageFrame = np.zeros((480,640,3)).astype(np.uint8)
         self.DepthFrameRaw = np.zeros((480,640)).astype(np.uint16)
         """ Extra arrays for colormaping the depth image"""
@@ -41,6 +42,7 @@ class Camera():
         self.depth2rgb_affine = np.float32([[1,0,0],[0,1,0]])
         self.cameraCalibrated = False
         self.intrinsic_matrix = np.array([])
+        self.distortion = np.array([])
         self.last_click = np.array([0,0])
         self.new_click = False
         self.rgb_click_points = np.zeros((5,2),int)
@@ -48,7 +50,7 @@ class Camera():
         self.tag_detections = np.array([])
         self.not_calibrate_msg = False
         # AR Tag information
-        self.ar_tag_detections = []
+        self.ar_tag_detections = [[],[],[],[]]
         self.tag_1_wf_pose = np.array([[-.1416], [0], [-.06691], [0]])
         self.rgb2world = None
         self.color = "None"
@@ -57,26 +59,72 @@ class Camera():
           'Red': [70, 60, 100],
           'Green': [100,100,10],
           'Black': [50,50,20],
-          'Yellow': [170,190,190],
+          'Yellow': [20,190,190],
           'Purple': [118,  52,  59],
           'Pink': [120,70,160],
           'Orange': [25,84,200]}
         """ block info """
         self.block_contours = np.array([])
         self.block_detections = np.array([0,0])
-        os.get_cwd(), 'dim'
-        # get work station dimensions
+        self.blockState = {'Blue': [0,0,0], 
+          'Red': [0,0,0],
+          'Green': [0,0,0],
+          'Black': [0,0,0],
+          'Yellow': [0,0,0],
+          'Purple': [0,0,0],
+          'Pink': [0,0,0],
+          'Orange': [0,0,0]}
+        # get work station dimensions and find all world coordinates of each april tag
         df = pd.read_csv('dimensions.csv', index_col=0).T
-        self.tableDimensions = df.iloc[station]
+        tableDimensions = df.iloc[station]
+        self.tag_locations = self.set_tag_locations(tableDimensions)
 
-        
+
+    def set_tag_locations(self, td):
+      w_tags = np.matrix(np.ones((4,4)))
+
+      # all in (mm)
+      # tag 1 
+      w_tags[:,0] = self.tag_1_wf_pose * 1000
+      w_tags[3,0] = 1
+
+      # tag 2
+      w_tags[0,1] = -(td['World Offset y'] - td['T2 Y'])
+      w_tags[1,1] = td['World Offset X'] - td['T2 X']
+
+      # tag 3
+      w_tags[0,2] = td['Board Length'] - td['World Offset y'] - td['T4 Y']
+      w_tags[1,2] = td['World Offset X'] - td['T3 X']
+
+      # tag 4
+      w_tags[0,3] = -(td['World Offset y'] - td['T4 Y'])
+      w_tags[1,3] = -(td['Board Width'] - td['World Offset X'] - td['T4 X'])
+
+      # set 2-4 depths
+      w_tags[2,1:] = -103.91
+
+      # convert to meters
+      w_tags = w_tags * .001
+
+      w_tags[3,:] = 1
+
+
+      return w_tags
+      
+
+    
     def processVideoFrame(self):
         """!
         @brief      Process a video frame
         """
-        cv2.drawContours(self.VideoFrame,self.block_contours, 0,(255,0,255),3)
-        cv2.putText(self.VideoFrame, self.color, (self.block_detections[0],self.block_detections[1]), cv2.FONT_HERSHEY_SIMPLEX, .5, (255,255,255), 1)
-
+        #
+        #cv2.putText(self.VideoFrame, self.color, (self.block_detections[0],self.block_detections[1]), cv2.FONT_HERSHEY_SIMPLEX, .5, (255,255,255), 1)
+        for c in self.colorBases:
+          if self.blockState[c][0] > 0:
+            cv2.circle(self.VideoFrame, (int(self.blockState[c][0]), int(self.blockState[c][1])), 4, (0,0,0), -1)
+            cv2.putText(self.VideoFrame, c, (int(self.blockState[c][0]),int(self.blockState[c][1])), cv2.FONT_HERSHEY_SIMPLEX, .5, (255,255,255), 1)
+        
+        #self.VideoFrame = self.MaskFrame
     def ColorizeDepthFrame(self):
         """!
         @brief Converts frame to colormaped formats in HSV and RGB
@@ -152,73 +200,133 @@ class Camera():
             return None
 
     def calibrate(self):
-      # check that enough detections have been found
-      if len(self.ar_tag_detections) != 100: 
-        return False
+      # check that enough detections have been found for the four tags
+      for detection_list in self.ar_tag_detections:
+        if len(detection_list) != 100:
+          return False  
+        
       
             
       # position and orientation will be average of the last ten AR Tag Detections
-      position = np.array([0.0, 0.0, 0.0])
-      orientation = np.array([0.0, 0.0, 0.0, 0.0])
-
+      tags = []
+      
       # go through all detections and add them to the position/orientation
-      for detection in self.ar_tag_detections:
-        for i in range(4):
-          if i < 3:
-            # position is length 3
-            position[i] += detection['position'][i]
-          # orientation is length 4
-          orientation[i] += detection['orientation'][i]
+      for detection_list in self.ar_tag_detections:
+        position = np.array([0.0, 0.0, 0.0])
+        orientation = np.array([0.0, 0.0, 0.0, 0.0])
+        for detection in detection_list:
+          for i in range(4):
+            if i < 3:
+              # position is length 3
+              position[i] += detection['position'][i] 
+            # orientation is length 4
+            orientation[i] += detection['orientation'][i]
 
-      # get position/orientation of AR Tag for this detection
-      position = position/100
-      orientation = orientation/100
+        position /= 100
+        orientation /= 100
+
+        # calculate new depth based on depth camera
+        tagDetectionZ = position[2]      
+        # find pixel location
+        tag_pixel = (1/tagDetectionZ) * np.matmul(self.intrinsic_matrix, position)
+        # from pixel location find depth
+        depthZ = float(self.DepthFrameRaw[int(tag_pixel[1]), int(tag_pixel[0])]) * .001
+        position[2] = depthZ
+        # tag_pixel = (1/position[2]) * np.matmul(self.intrinsic_matrix, position)
+
+        # save to list
+        tags.append(copy({'position': position, 'orientation': orientation, 'pixel': tag_pixel[0:2]}))
       
+      # # tags contains a list of position/orientation for each tag (length 4)
+      # tag_model_points = np.array([tag['position'] for tag in tags])
+      # # tag_model_points -= tag_model_points[0,:]
+      tag_image_points = np.array([tag['pixel'] for tag in tags])
+      print("IMG", tag_image_points)
+      # print("TAG MDOEL", tag_model_points)
+
+      relative_positions = self.tag_locations
+      model_points = relative_positions.T[:,:3]
+
+      print("MODEL POINTS", model_points)
+      # pixel -> camera
+      (success, r_vec, t_vec) = cv2.solvePnP(model_points, tag_image_points, self.intrinsic_matrix, self.distortion)
+
+      for tag in tags:
+            print(tag['position'])
+      # camera -> AR TAG -> world
+
+      print("PnP Success = ", success)
+      r_mtx = np.zeros((3,3))
+      cv2.Rodrigues(r_vec, r_mtx)
+      # r_mtx_camera2world = (r_mtx - r_mtx.T)/2
       
-      # # get depth from AR Tag calc 
-      tagDetectionZ = position[2]
-      
-      
-      # # find pixel location
-      tag_pixel = (1/tagDetectionZ) * np.matmul(self.intrinsic_matrix, position)
-
-      # # from pixel location find depth
-      depthZ = float(self.DepthFrameRaw[int(tag_pixel[1]), int(tag_pixel[0])]) * .001
-
-      print('AR TAG DEPTH: {tagDetectionZ}'.format(tagDetectionZ=tagDetectionZ))
-      print('DEPTH CAMERA DEPTH: {depthZ}'.format(depthZ=depthZ))
-
-      position[2] = depthZ
-
-      # get rotation from quaternion 
       # rotate from camera -> AR Tag Frame
-      rotation = R.from_quat(orientation)
-      print('EULER FROM AR: {rotation}'.format(rotation=rotation.as_euler('xyz', degrees=True)))
+      # rotation = R.from_quat(tags[0]['orientation'])
+      # print('EULER FROM AR: {rotation}'.format(rotation=rotation.as_euler('xyz', degrees=True)))
       # rotation from AR Tag Frame -> World Frame
-      re = rotation.as_euler('xyz', degrees=True)
-      re[0] = 179
-      re[1] = 0
-      re[2] -= 93
-      rnew = R.from_euler('xyz', re, degrees=True)
+      # re = rotation.as_euler('xyz', degrees=True)
+      # re[0] = 179
+      # re[1] = 0
+      # re[2] -= 93
+      
+      # rnew = R.from_euler('xyz', re, degrees=True)
 
       # set rotation matrix (old approach)
       # rotation_ttw = R.from_euler('xz', [180,90], degrees=True)
       # rotation_ttw = rotation_ttw.as_dcm()
 
-      rotation = rnew.as_dcm()
-
+      # rotation = rnew.as_dcm()
+      # print("rotation prev shape:", rotation)
+      # print("new rotation shape:", r_mtx_camera2world)
       # rotation from World -> Camera Frame
       # rotation = np.matmul(rotation_ttw, rotation)
-
       # get translation from pose of april-tag
-      translation = position 
-      # form Transform
-      holo = np.hstack((rotation, np.transpose([translation])))
-      self.rgb2world = np.vstack((holo, np.array([0, 0, 0, 1])))
-      # add in 
-      self.rgb2world = np.linalg.inv(self.rgb2world)
+      # translation = tags[0]['position']
+      
+      # print('translation prev shape:')
+      # print(translation)
+      # print('new translation shape:')
+      # print(t_vec)
+      
+      
+      
+      # # form Transform
+      # holo = np.hstack((rotation, np.transpose([translation])))
+      # self.rgb2world = np.vstack((holo, np.array([0, 0, 0, 1])))
+      # # inverse
+      # self.rgb2world = np.linalg.inv(self.rgb2world)
 
+      
+      # add in translation
+      # print('before')
+      # print(self.rgb2world)
+      # self.rgb2world = self.rgb2world + np.hstack((np.zeros((4,3)), self.tag_1_wf_pose))
+      # print(self.rgb2world)
+      # # compare rotation/translation here!
+      # r = R.from_matrix(self.rgb2world)
+      # rgb_copy = copy(self.rgb2world)
+
+      new_rotation = np.vstack((np.hstack((r_mtx, t_vec)) , np.array([0, 0, 0, 1])))
+      new_rotation = np.linalg.inv(new_rotation)
+      
       self.cameraCalibrated = True
+
+      # for tag_id, tag in enumerate(tags):
+      #   print('TAG ', tag_id)
+      #   world_loc = self.pointToWorld(tag['pixel'])
+      #   self.rgb2world = new_rotation
+      #   world_loc_2 = self.pointToWorld(tag['pixel'])  
+      #   self.rgb2world = rgb_copy
+      #   print('ORIGINAL CAL:')
+      #   print(world_loc * 1000)
+      #   print('NEW CAL:')
+      #   print(world_loc_2 * 1000)
+      #   print('DIFFERENCE')
+      #   print((world_loc - world_loc_2)*1000)
+
+      #   print('------------------------------------------------')
+      #   print('------------------------------------------------')
+      self.rgb2world = new_rotation
       return True
     
 
@@ -262,29 +370,44 @@ class Camera():
           return np.zeros((4,1))
         
         # calculate the depth
-        depth = float(self.DepthFrameRaw[pt[1], pt[0]]) * .001
+        depth = float(self.DepthFrameRaw[int(pt[1]), int(pt[0])]) * .001
         
         # set pixels pixels
         pt = np.array([[pt[0]],[pt[1]],[1]])
 
         # calculate the camera frame 4x1
-        cameraframe = depth * np.matmul(np.linalg.inv(self.intrinsic_matrix), pt)
+        cameraframe = depth*np.matmul(np.linalg.inv(self.intrinsic_matrix), pt)
+        cameraframe[2] = depth
         cameraframe = np.vstack((cameraframe, np.array([1])))
         
         # calculate the world frame
         world = np.matmul(self.rgb2world, cameraframe)
-        world = world + self.tag_1_wf_pose
         return world
     
     def detectAll(self):
         # current rgb image
         rgbimg = self.VideoFrame
-        depthimg = self.DepthFrameRaw 
-
-        # height/width/rgb shape
-        h,w,c = rgbimg.shap
-        
-        pass
+        depthimg = self.DepthFrameRaw
+        h,w,c = rgbimg.shape
+        mask = cv2.inRange(depthimg, (0), (950))
+        for i in range(h):
+              for j in range(w):
+                    self.MaskFrame[i,j,0] = mask[i,j]
+        im, contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        mcs = np.array([0,0])
+        for c in range(len(contours)):
+          mu = cv2.moments(contours[c])
+          mid = (mu['m10'] / (mu['m00'] + 1e-5), mu['m01'] / (mu['m00'] + 1e-5))
+          self.last_click = (int(mid[0]),int(mid[1]))
+          self.blockDetector()
+          mc = self.block_detections
+          newbox = self.block_contours[0]
+          color = self.color
+          blockside1 = math.sqrt((newbox[0][0]-newbox[1][0])**2+(newbox[0][1]-newbox[1][1])**2) 
+          blockside2 = math.sqrt((newbox[2][0]-newbox[1][0])**2+(newbox[2][1]-newbox[1][1])**2) 
+          if (blockside1 > 10) & (blockside1 < 40) & (blockside2 > 10) & (blockside2 < 40):
+            mcs = np.vstack((mcs, mc))
+            self.blockState[color] = [int(mc[0]),int(mc[1]), 0]
     
     # rank all takes in all blocks and outputs 
  
@@ -301,7 +424,7 @@ class Camera():
       # 
 
       # stateMachine Comp (order of blocks, stack?=Bool)
-        # detectall
+        # detectallf
         # if stack? 
         # use same pixel 
         # else: start at inital pixel and offset accordingly after each placement
@@ -314,11 +437,6 @@ class Camera():
         # 3 blocks (unstacked) > 2.5 cm apart
         # stack on other side of board
         # 
-    
-
-
-
-
 
     def blockDetector(self):
         """!
@@ -351,8 +469,9 @@ class Camera():
           i = int(i-(i-1)/2)
           for j in range(sq):
             j = int(j-(j-1)/2)
-            avgc = avgc + blocks[point[1]+i,point[0]+j, :]
-            adif = adif + np.subtract(blocks[point[1]+i,point[0]+j, :], color)
+            if (point[1]+i < h) & (point[1]+i > 0) & (point[0]+j < w) & (point[0]+j > 0):
+              avgc = avgc + blocks[point[1]+i,point[0]+j, :]
+              adif = adif + np.subtract(blocks[point[1]+i,point[0]+j, :], color)
 
         avgc = avgc/(sq*sq)
         adif = 10+adif/(sq*sq*20)
@@ -382,7 +501,6 @@ class Camera():
         mc = (int(mu['m10'] / (mu['m00'] + 1e-5)), int(mu['m01'] / (mu['m00'] + 1e-5)))
         self.block_detections = mc
         self.block_contours = [box]
-        print(avgc)
         minnorm = 1000
         colorName = "None"
 
@@ -439,23 +557,29 @@ class TagDetectionListener:
   def callback(self,data):
     self.camera.tag_detections = data
     for detection in data.detections:
-      if detection.id[0] == 1:
-        # get the position and orientation as numpy arrays
-        position = detection.pose.pose.pose.position
-        position = np.array([position.x, position.y, position.z])
-        
-        orientation = detection.pose.pose.pose.orientation
-        orientation = np.array([orientation.x, orientation.y, orientation.z, orientation.w])
-        
-        # add to list of detection pose/orientations 
-        self.camera.ar_tag_detections.append(copy({'position': position, 'orientation': orientation}))
-        if len(self.camera.ar_tag_detections) > 100:
-          garbage = self.camera.ar_tag_detections.pop(0)
-        
-        
-        
-        
-        
+      id = detection.id[0] - 1
+      # get the position and orientation as numpy arrays
+      position = detection.pose.pose.pose.position
+      position = np.array([position.x, position.y, position.z])
+      
+      orientation = detection.pose.pose.pose.orientation
+      orientation = np.array([orientation.x, orientation.y, orientation.z, orientation.w])
+      
+
+      # # calculate new depth based on depth camera
+      # tagDetectionZ = position[2]      
+      # # find pixel location
+      # tag_pixel = (1/tagDetectionZ) * np.matmul(self.camera.intrinsic_matrix, position)
+      # # from pixel location find depth
+      # depthZ = float(self.camera.DepthFrameRaw[int(tag_pixel[1]), int(tag_pixel[0])]) * .001
+      # position[2] = depthZ
+
+      # add to list of detection pose/orientations 
+      self.camera.ar_tag_detections[id].append(copy({'position': position, 'orientation': orientation}))
+      if len(self.camera.ar_tag_detections[id]) > 100:
+        garbage = self.camera.ar_tag_detections[id].pop(0)
+
+
 class CameraInfoListener:
   def __init__(self, topic, camera):
     self.topic = topic
@@ -463,6 +587,7 @@ class CameraInfoListener:
     self.camera = camera
   def callback(self,data):
     self.camera.intrinsic_matrix = np.reshape(data.K, (3,3))
+    self.camera.distortion = np.reshape(data.D, (5,1))
 
 class DepthListener:
   def __init__(self, topic, camera):

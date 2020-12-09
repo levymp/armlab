@@ -33,7 +33,7 @@ class Gui(QMainWindow):
     Contains the main function and interfaces between the GUI and functions.
     """
 
-    def __init__(self, parent=None, dh_config_file=None, station):
+    def __init__(self, station, parent=None, dh_config_file=None):
         QWidget.__init__(self,parent)
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
@@ -141,6 +141,10 @@ class Gui(QMainWindow):
         # Dance 
         self.ui.btnUser10.setText('DANCE BABY!')
         self.ui.btnUser10.clicked.connect(lambda : self.sm.dance())
+
+        # Find Blocks 
+        self.ui.btnUser11.setText('Find Blocks')
+        self.ui.btnUser11.clicked.connect(lambda : self.camera.detectAll())
 
 
         # Sliders
@@ -304,7 +308,6 @@ class Gui(QMainWindow):
         self.ui.chk_directcontrol.setChecked(False)
         self.rxarm.enable_torque()
         self.sm.set_next_state('initialize_rxarm')
-
 
 ### TODO: Add ability to parse POX config file as well
 def main(args=None):

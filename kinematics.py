@@ -274,8 +274,11 @@ def IK_geometric(dh_params, pose, theta5=0):
     if np.isnan(theta4_s1) and np.isnan(theta4_s2) and np.isnan(theta4_s3) and np.isnan(theta4_s4):
         print("NO SOLUTION FOUND")
         return False, solution_matrix
-
+    
+    print(solution_matrix)
+    print(~np.isnan(solution_matrix).any(axis=1))
     res = solution_matrix[~np.isnan(solution_matrix).any(axis=1)]
+    
     if len(res) == 0:
         return False, res
     # fk_poses = []

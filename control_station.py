@@ -146,6 +146,8 @@ class Gui(QMainWindow):
         self.ui.btnUser11.setText('Find Blocks')
         self.ui.btnUser11.clicked.connect(lambda : self.camera.detectAll())
 
+        # comp 2
+        self.ui.btn_task2.clicked.connect(lambda : self.sm.comp2())
 
         # Sliders
         for sldr in self.joint_sliders:
@@ -288,13 +290,14 @@ class Gui(QMainWindow):
 
         """ Get mouse posiiton """
         pt = mouse_event.pos()
-        self.camera.last_click[0] = pt.x()
-        self.camera.last_click[1] = pt.y()
+        self.camera.last_click = (pt.x(),pt.y())
         self.camera.new_click = True
 
         if self.sm.next_state == "pick":
             self.camera.blockDetector()
             pickCords = self.camera.pointToWorld(self.camera.block_detections)
+            print('PICK:')
+            print(pickCords)
             self.sm.pick(pickCords)
         if self.sm.next_state == "place":
             placeCords = self.camera.pointToWorld(self.camera.last_click)

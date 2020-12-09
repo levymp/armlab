@@ -66,14 +66,14 @@ class Camera():
         """ block info """
         self.block_contours = np.array([])
         self.block_detections = np.array([0,0])
-        self.blockState = {'Blue': [0,0,0], 
-          'Red': [0,0,0],
-          'Green': [0,0,0],
-          'Black': [0,0,0],
-          'Yellow': [0,0,0],
-          'Purple': [0,0,0],
-          'Pink': [0,0,0],
-          'Orange': [0,0,0]}
+        self.blockState = {'Blue': {'pixel':[0,0,0]}, 
+          'Red': {'pixel':[0,0,0]},
+          'Green': {'pixel':[0,0,0]},
+          'Black': {'pixel':[0,0,0]},
+          'Yellow': {'pixel':[0,0,0]},
+          'Purple': {'pixel':[0,0,0]},
+          'Pink': {'pixel':[0,0,0]},
+          'Orange': {'pixel':[0,0,0]}}
         # get work station dimensions and find all world coordinates of each april tag
         df = pd.read_csv('dimensions.csv', index_col=0).T
         tableDimensions = df.iloc[station]
@@ -117,12 +117,12 @@ class Camera():
         """!
         @brief      Process a video frame
         """
-        #
         #cv2.putText(self.VideoFrame, self.color, (self.block_detections[0],self.block_detections[1]), cv2.FONT_HERSHEY_SIMPLEX, .5, (255,255,255), 1)
         for c in self.colorBases:
-          if self.blockState[c][0] > 0:
-            cv2.circle(self.VideoFrame, (int(self.blockState[c][0]), int(self.blockState[c][1])), 4, (0,0,0), -1)
-            cv2.putText(self.VideoFrame, c, (int(self.blockState[c][0]),int(self.blockState[c][1])), cv2.FONT_HERSHEY_SIMPLEX, .5, (255,255,255), 1)
+          blockPixel = self.blockState[c]['pixel']
+          if blockPixel[0] > 0:
+            cv2.circle(self.TagImageFrame, (int(blockPixel[0]), int(blockPixel[1])), 4, (0,0,0), -1)
+            cv2.putText(self.TagImageFrame, c, (int(blockPixel[0]),int(blockPixel[1])), cv2.FONT_HERSHEY_SIMPLEX, .5, (255,255,255), 1)
         
         #self.VideoFrame = self.MaskFrame
     def ColorizeDepthFrame(self):
@@ -407,8 +407,12 @@ class Camera():
           blockside2 = math.sqrt((newbox[2][0]-newbox[1][0])**2+(newbox[2][1]-newbox[1][1])**2) 
           if (blockside1 > 10) & (blockside1 < 40) & (blockside2 > 10) & (blockside2 < 40):
             mcs = np.vstack((mcs, mc))
-            self.blockState[color] = [int(mc[0]),int(mc[1]), 0]
+            self.blockState[color]['pixel'] = [int(mc[0]),int(mc[1]), depthimg[int(mc[1]),int(mc[0])]]
+            self.blockState[color]['position'] = self.pointToWorld(self.blockState[color]['pixel'])
     
+        print(self.blockState)
+
+      # TODO
     # rank all takes in all blocks and outputs 
  
 

@@ -11,7 +11,7 @@ import os
 from dance import dance_waypoints, dance_gripper
 from datetime import datetime
 from pytz import timezone
-
+import pandas as pd
 
 class StateMachine():
     """!
@@ -127,8 +127,97 @@ class StateMachine():
         self.next_state = "idle"
 
 
+    def comp2(self):
+        # calibrate
+        
+        # get all colors needed for competition
+        colors = ['Yellow', 'Green', 'Orange']
+        
+        # get all block states
+        self.camera.detectAll()
+        self.camera.detectAll()
+        self.camera.detectAll()
+
+        # go through all colors in block states and mark them as incomplete
+        for color in self.camera.blockState.keys():
+            self.camera.blockState['complete'] = False
+        
+        # check if blocks are at valid initial state
+        initialized = True
+        for color in colors:
+            if self.camera.blockState[color]['position'][1] > 0:
+                initialized = False
+        
+        
+        if not initialized:
+            print('BLOCKS ARE NOT ON THE CORRECT SIDE')
+
+
+        # pick a spot on the other side of the board
+        # 233/227
+
+        initial_pixel = [230, 230]
+
+        initialCords = self.camera.pointToWorld(initial_pixel)
+
+        # go through all blocks and move them to the other side
+        pick_point = self.camera.blockState['Green']['pixel']
+
+        self.camera.last_click = (pick_point[0], pick_point[1])
+        self.camera.blockDetector()
+        
+        pickCords = self.camera.pointToWorld(self.camera.block_detections)
+
+        print('GOING TO:')
+        success = False
+        for i in range(100):
+            if self.pick(pickCords):
+                print(i)
+                print('PICKING UP GREEN BLOCK!')
+                self.execute()
+                success = True
+                break
+        
+        if not success:
+            print('COULD NOT PICK UP GREEN BLOCK!')
+            return
+                
+        # set to initalize
+        self.next_state = 'initialize_rxarm'
+
+        # for i in range(len(colors)):
+        #     color = colors[i]
+        #     pick_point = self.camera.blockState[color]['pixel']
+        #     # pick up the current block
+        #     Ik = False
+            
+        #     while (not Ik):
+        #         Ik = self.pick(pick_point)
+                
+        #         pick_point[0] += 1
+        #         pick_point[1] += 1
+            
+            
+            
+        #     if i == 0:
+        #         self.place(initial_pixel)
+        #     else:
+        #         # find new block positions
+        #         self.camera.detectAll()
+        #         place_point = self.camera.blockState[colors[i-1]]['pixel']
+        #         self.place(place_point)
+              
+
+          
+
+      
+
+
+
+      # pick a location to send the blocks to
+
     def pick(self, point):
-        print("angle", self.camera.block_contours)
+        # print("angle", self.camera.block_contours)
         # go above the block
         found = False
         i = 0
@@ -139,7 +228,8 @@ class StateMachine():
             dy =  self.camera.block_contours[0][2][1] - self.camera.block_contours[0][1][1]
 
             t5 = np.arctan2(dy,dx) + np.arctan2(point[1],point[0])
-            print("t5", t5)
+            print("POINT",point)
+            # print("t5", t5)
             success1, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1, t5[0]) 
             # joint_angles1 = np.asarray(joint_angles1)[0,:].tolist()
             # list(np.array(joint_angles1).reshape(-1,))
@@ -150,6 +240,7 @@ class StateMachine():
             # joint_angles2 = np.asarray(joint_angles2)[0,:].tolist()
             if not (success1 and success2):
                 print("ERROR: NO SOLUTION FOUND FOR IK")
+                return False
             else:
                 found = True
             i += 1
@@ -163,14 +254,17 @@ class StateMachine():
 
         if not (success1 and success2):
             print("ERROR: NO SOLUTION FOUND FOR IK")
-            return
+            return False
+        
+        
         # print out first Joint Waypoints
         # print('JOINT ANGLES 2 (PICK):')
         # print(np.array(joint_angles2) * 180/np.pi)
-        print('PICKING Block AT: {goal_pose2}'.format(goal_pose2=goal_pose2))
+        # print('PICKING Block AT: {goal_pose2}'.format(goal_pose2=goal_pose2))
         self.waypoints = [joint_angles1, joint_angles1, joint_angles2, joint_angles1]
         self.gripper_waypoints = [1, 1, 0, 0]
         self.next_state = 'execute'
+        return True
 
     def place(self, point):
         found = False
@@ -182,7 +276,7 @@ class StateMachine():
             # joint_angles1 = np.asarray(joint_angles1)[0,:].tolist()
             
             # release
-            goal_pose2 = [point[0], point[1], point[2] + .025 , self.phi]
+            goal_pose2 = [point[0], point[1], point[2] + .038 , self.phi]
             success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2)
             # joint_angles2 = np.asarray(joint_angles2)[0,:].tolist()
 
@@ -194,12 +288,16 @@ class StateMachine():
 
         if not (success1 and success2):
             print("ERROR: NO SOLUTION FOUND FOR IK")
-            return
+            return False
+        else:
+            found = True
 
-        self.waypoints = [joint_angles1, joint_angles1, joint_angles2, joint_angles1]
-        print('PLACING AT: {goal_pose2}'.format(goal_pose2=goal_pose2))
+        home_joints = [0.0, 0.0, 0.0, 0.0, 0.0]
+        self.waypoints = [joint_angles1, joint_angles1, joint_angles2, joint_angles1, home_joints]
+        # print('PLACING AT: {goal_pose2}'.format(goal_pose2=goal_pose2))
         self.gripper_waypoints = [0, 0, 1, 1]
         self.next_state = 'execute'
+        return True
 
     def pick_idle(self):
         self.status_message = "State: Pick - Waiting for input"

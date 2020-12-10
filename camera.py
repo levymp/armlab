@@ -55,15 +55,14 @@ class Camera():
         self.rgb2world = None
         self.color = "None"
         self.colorBases = {
-
+          'Black': [50,50,20],
           'Red': [70, 60, 100],
+          'Orange': [25,84,200],
+          'Yellow': [20,190,190],
           'Green': [100,100,10],
           'Blue': [150, 60, 0], 
           'Violet': [118,  52,  59],
-          'Black': [50,50,20],
-          'Yellow': [20,190,190],
-          'Pink': [120,70,160],
-          'Orange': [25,84,200]}
+          'Pink': [120,70,160]}
         """ block info """
         self.block_contours = np.array([])
         self.block_detections = np.array([0,0])
@@ -112,8 +111,11 @@ class Camera():
 
       return w_tags
       
+    def resetBlockState(self):
+      for key in self.blockState.keys():
+        self.blockState[key]['pixel'] = [0,0,0]
 
-    
+
     def processVideoFrame(self):
         """!
         @brief      Process a video frame
@@ -381,6 +383,9 @@ class Camera():
         return world
     
     def detectAll(self):
+        # reset detections
+        self.resetBlockState()
+
         # current rgb image
         rgbimg = self.VideoFrame
         depthimg = self.DepthFrameRaw
@@ -493,13 +498,15 @@ class Camera():
             mindis = dist
             mincon = c
             rec = minRect
-
-        box = cv2.boxPoints(rec)
-        box = np.intp(box)
-        mu = cv2.moments(contours[mincon])
-        mc = (int(mu['m10'] / (mu['m00'] + 1e-5)), int(mu['m01'] / (mu['m00'] + 1e-5)))
-        self.block_detections = mc
-        self.block_contours = [box]
+        if rec is not None:
+          box = cv2.boxPoints(rec)
+          box = np.intp(box)
+          mu = cv2.moments(contours[mincon])
+          mc = (int(mu['m10'] / (mu['m00'] + 1e-5)), int(mu['m01'] / (mu['m00'] + 1e-5)))
+          self.block_detections = mc
+          self.block_contours = [box]
+        
+        
         minnorm = 1000
         colorName = "None"
 

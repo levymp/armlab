@@ -134,6 +134,7 @@ class StateMachine():
         found = False
         i = 0
         self.phi = -np.pi/2
+
         while (not found) and (i<=11):
             goal_pose1 = [point[0], point[1], point[2] + .05, self.phi]
             dx =  self.camera.block_contours[0][2][0] - self.camera.block_contours[0][1][0]

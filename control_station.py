@@ -149,7 +149,8 @@ class Gui(QMainWindow):
         self.ui.btnUser11.clicked.connect(lambda : self.camera.detectAll())
 
         # comp 2
-        self.ui.btn_task2.clicked.connect(lambda : self.comp1())
+        self.ui.btn_task1.clicked.connect(lambda : self.comp1())
+        self.ui.btn_task2.clicked.connect(lambda : self.comp2())
 
         # Sliders
         for sldr in self.joint_sliders:
@@ -248,18 +249,157 @@ class Gui(QMainWindow):
             self.rxarm.set_positions(joint_positions[0:self.rxarm.num_joints])
 
 
-    # def comp3(self):
-    #     # Detect all blocks
-    #     self.camera.detectAll()
+    def getHighestBlock(self):
+        depth = -10000
+        color_key = ''
+        for color in self.camera.colorBases.keys():
+            if self.camera.blockState[color]['pixel'][2] == 0:
+                continue
+            
+            color_depth = self.camera.blockState[color]['position'][2]
+            
+            if color_depth > depth and color_depth < 0.20:
+                depth = self.camera.blockState[color]['position'][2]
+                color_key = color
+        if color_key == '':
+            return False, color_key
+        return True, color_key
+            
+    def pixel2coordinates(self, point): 
+        # take in a pixel near a block and get the block world frame coordiantes back 
+        # this can then be fed into PICK/PLACE
+        self.camera.last_click = (point[0], point[1])
+        self.camera.blockDetector()
+        pickCords = self.camera.pointToWorld(self.camera.block_detections)
+        return pickCords
 
-    #     # order that blocks need to be processed
-    #     self.camera.color
+
+    def color2coordinates(self, color, color_vec, initial_coordinates, offset = 0.025, axis='x'):
+        count = -1
+        for color_key in color_vec:
+            count += 1
+            if color_key == color:
+                break
         
-    #     pass 
-    #     return
+        new_coordinates = initial_coordinates
+        if axis=='x':
+            new_coordinates[0] += offset*count
+        elif axis == 'y':
+            new_coordinates[1] += offset*count
+        elif axis == 'z':
+            new_coordinates[2] += offset*count
+        
+        return new_coordinates
+
+    def comp2(self):
+        # sleep arm before detecting blocks
+        self.rxarm.sleep()
+        # Detect all blocks
+        time.sleep(5)
+
+        # reset blockstate pixel locations (when running multiple times)
+        self.camera.resetBlockState()
+        
+        # detect all blocks multiple times
+        for i in range(15):
+            self.camera.detectAll()
+        
+        # order that blocks need to be processed
+        colors = self.camera.colorBases.keys()
+        
+        print('WILL PICK IN THIS ORDER:')
+        print(colors)
+        # colors = ['Black', 'Blue', 'Pink']
+        # upper left hand side
+        
+        
+        # where to put first block
+        initial_pixel = [186, 158]
+        initial_coordinates = self.camera.pointToWorld(initial_pixel)
+        
+        # where to put blocks in limbo 
+        destack_pixel = [205, 420]
+        destack_coordinates = self.camera.pointToWorld(destack_pixel)
 
 
+        # initial pixel
+        for id, color in enumerate(colors):
+            # sleep arm before detecting blocks
+            self.rxarm.sleep()
+            # Detect all blocks
+            time.sleep(5)
+            # detect all blocks multiple times
+            for i in range(10):
+                self.camera.detectAll()
 
+            # check if current color has been found 
+            pixel = self.camera.blockState[color]['pixel']
+            
+            # check if current color is not available to be ordered (under a stack)
+            if not pixel[2]:
+                # continue to destack until we see the color
+                while not pixel[2]:
+                    # find color to destack
+                    success, deStackColor = self.getHighestBlock()
+                    print('{color1} NOT FOUND... Destacking {deStackColor1}'.format(color1=color, deStackColor1=deStackColor))
+                    print(self.camera.blockState[deStackColor])
+                    if success:
+                        # get the pixel coordinates 
+                        deStackPixel = self.camera.blockState[deStackColor]['pixel']
+                        # pickup at pixel location
+                        pick = self.pixel2coordinates(deStackPixel)
+                        # place at limbo location
+                        placeCoordinates = self.color2coordinates(deStackColor, colors,
+                                                                destack_coordinates,
+                                                                axis='y')
+                        place = placeCoordinates
+                        
+                        # initialize
+                        self.rxarm.initialize()
+                        time.sleep(5)
+
+                        # pick up and place found block
+                        self.sm.pick(pick)  
+                        time.sleep(10)
+                        self.sm.place(place)
+                        time.sleep(10)
+
+                        # sleep arm before detecting blocks
+                        self.rxarm.sleep()
+                        # Detect all blocks
+                        time.sleep(10)
+                        for i in range(5):
+                            self.camera.detectAll()
+                        self.rxarm.initialize()
+                        time.sleep(5)
+                    print('{color1} STATUS W/DE-STACK'.format(color1=color))
+                    print(self.camera.blockState[color])
+                    # reset pixel
+                    pixel = self.camera.blockState[color]['pixel']
+            
+            # should have desired color exposed to move to correct location
+            if pixel[2] and (not id):
+                # Found first color
+                # go to initial position
+                pick = self.pixel2coordinates(pixel)
+                place = initial_coordinates 
+            else:
+                # go to a specific location (below the last color that was used)
+                pick = self.pixel2coordinates(pixel)
+                place = self.color2coordinates(color, colors, initial_coordinates)
+            
+            # initialize
+            self.rxarm.initialize()
+            time.sleep(4)
+            print('PICKING {color1} AT {loc}'.format(color1=color,loc=pick))
+            # pick up and place in correct location
+            self.sm.pick(pick)
+            time.sleep(10)
+            print('PLACING {color1} AT {loc}'.format(color1=color,loc=place))
+            self.sm.place(place)
+            time.sleep(10)
+ 
+        return
 
 
     def comp1(self):

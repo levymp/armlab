@@ -12,6 +12,8 @@ import numpy as np
 import rospy
 import time
 from functools import partial
+from copy import copy
+import math
 
 from PyQt4.QtCore import (QThread, Qt, pyqtSignal, pyqtSlot, QTimer)
 from PyQt4.QtGui import (QPixmap, QImage, QApplication, QWidget, QLabel, QMainWindow, QCursor, QFileDialog)
@@ -147,7 +149,7 @@ class Gui(QMainWindow):
         self.ui.btnUser11.clicked.connect(lambda : self.camera.detectAll())
 
         # comp 2
-        self.ui.btn_task2.clicked.connect(lambda : self.sm.comp2())
+        self.ui.btn_task2.clicked.connect(lambda : self.comp1())
 
         # Sliders
         for sldr in self.joint_sliders:
@@ -244,6 +246,129 @@ class Gui(QMainWindow):
             joint_positions = np.array([sldr.value() * D2R for sldr in self.joint_sliders])
             # Only send the joints that the rxarm has
             self.rxarm.set_positions(joint_positions[0:self.rxarm.num_joints])
+
+
+    # def comp3(self):
+    #     # Detect all blocks
+    #     self.camera.detectAll()
+
+    #     # order that blocks need to be processed
+    #     self.camera.color
+        
+    #     pass 
+    #     return
+
+
+
+
+
+    def comp1(self):
+        if not self.camera.cameraCalibrated or not self.rxarm.initialized:
+            print('CAMERA/ARM NOT INITIALIZED!')
+            return
+        # get all colors needed for competition
+        colors = ['Red', 'Green', 'Blue']
+        self.current_state = 'execute'
+        # get all block states
+        self.camera.detectAll()
+        self.camera.detectAll()
+        self.camera.detectAll()
+
+        # go through all colors in block states and mark them as incomplete
+        for color in self.camera.blockState.keys():
+            self.camera.blockState[color]['complete'] = False
+        
+        # check if blocks are at valid initial state
+        initialized = True
+        
+        # go through colors in comp and make sure we can see them
+        for color in colors:
+            if self.camera.blockState[color]['pixel'][0] == 0:
+                # raise error
+                print('{color} WAS NOT FOUND! EXITING'.format(color=color))
+                return
+            if self.camera.blockState[color]['pixel'][1] > 0:
+                initialized = False
+        
+        # check if the robot is not initalized
+        if not initialized:
+            print('BLOCKS ARE NOT ON BOARD/CORRECT SIDE')
+
+        # pick a spot on the other side of the board to initialize first block to
+        initial_pixel = [230, 230]
+        # find specific coordinates
+        initialCords = self.camera.pointToWorld(initial_pixel)
+
+        # go through all blocks and move them to the other side
+        
+        for i, color in enumerate(colors):
+            pick_point = self.camera.blockState[color]['pixel']
+            # set the last click
+
+            self.camera.last_click = (pick_point[0], pick_point[1])
+            self.camera.blockDetector()
+
+            pickCords = self.camera.pointToWorld(self.camera.block_detections)
+            
+            
+            print('ABOUT TO PICK UP {color} BLOCK!'.format(color=color))
+            if self.sm.pick(pickCords):
+                time.sleep(10)
+                # time.sleep(self.rxarm.get_total_time()+1)
+                print('PICKED UP {color} BLOCK!'.format(color=color))
+            else:
+                print('FAILED TO PICKUP {color}'.format(color=color))
+            
+            # 
+            if (not i):
+                print('PLACING {color} BLOCK'.format(color=color))
+                self.sm.place(initialCords)
+            else:
+                # find new block positions
+                self.camera.detectAll()
+                time.sleep(0.5)
+                self.camera.detectAll()
+                time.sleep(0.5)
+                self.camera.detectAll()
+                
+                min_dist = 1000000.0
+                min_pix = initial_pixel
+                min_color = ''
+                for key in self.camera.blockState.keys():
+                    pix = self.camera.blockState[key]['pixel']
+                    if pix[2] != 0:
+                        dist = math.sqrt((initial_pixel[0] - pix[0])**2 + (initial_pixel[1] - pix[1])**2)
+                        if dist < min_dist:
+                            min_color = copy(key)
+                            min_pix = copy(pix)
+                            min_dist = dist
+                print('USING {color1} FOUND PIXEL:'.format(color1=min_color))
+
+                # place_pixel = self.camera.blockState[colors[i-1]]['pixel']
+
+                max_pix_radius = 5
+                placed_block = False
+                for i in [0,-1, 1]: #, 2, -2, 3, -3]:
+                    for j in [0, -1, 1]: #, 1, 2, -2, 3, -3]:
+                        if placed_block:
+                            break
+                        for k in range(1, max_pix_radius):
+                            self.camera.last_click = (min_pix[0] + k*i, min_pix[1] + k*j)
+                            self.camera.blockDetector()
+                            placeCords = self.camera.pointToWorld(self.camera.block_detections)
+
+                            if self.sm.place(placeCords) and not placed_block:
+                                print('PLACING {color} BLOCK'.format(color=color))
+                                print('INDEX:', k*i, k*j)
+                                placed_block = True 
+                                break
+                
+            # sleep for moving time
+            time.sleep(10)
+            # time.sleep(self.rxarm.get_total_time()+1)
+            
+            # go to initialize state at the end
+            self.sm.next_state = 'initialize_rxarm'
 
 
     def directControlChk(self, state):

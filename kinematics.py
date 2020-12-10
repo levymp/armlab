@@ -9,7 +9,7 @@ import numpy as np
 # expm is a matrix exponential function
 from scipy.linalg import expm
 from scipy.spatial.transform import Rotation as R
-
+import math
 
 
 def clamp(angle):
@@ -202,7 +202,7 @@ def IK_geometric(dh_params, pose, theta5=0):
     l4 = dh_params[3,0] # end link length
 
     if(np.sqrt(x**2 + y**2 + z**2) > (l1+l2+l3+l4)):
-        print("NO SOLUTION FOUND")
+        # print("NO SOLUTION FOUND - DIST BEYOND REACH")
         return False, np.zeros((4,5))
     t2 = dh_params[1,3]
     t3 = dh_params[2,3]
@@ -260,10 +260,10 @@ def IK_geometric(dh_params, pose, theta5=0):
                                  [theta1_s2, theta2_s4, theta3_s4, theta4_s4, theta5]])
 
     solution_matrix = clamp_mtx(solution_matrix)
-    # print("SOLN MTX", solution_matrix)
+
     joint_limits = np.asarray([[-179.9999,180.0],[-108,113],[-108,93],[-100,123],[-179.9999,180]],dtype=np.float64)
     joint_limits = np.multiply(joint_limits,np.pi/180.0)
-    # print("JOINT LIMITS", joint_limits)
+
     for soln in range(4):
         for joint in range(5):
             if not np.isnan(solution_matrix[soln,joint]):
@@ -272,22 +272,13 @@ def IK_geometric(dh_params, pose, theta5=0):
 
     # check if all results are nan
     if np.isnan(theta4_s1) and np.isnan(theta4_s2) and np.isnan(theta4_s3) and np.isnan(theta4_s4):
-        print("NO SOLUTION FOUND")
+        # print("NO SOLUTION FOUND - ARCCOS NAN")
         return False, solution_matrix
     
-    print(solution_matrix)
-    print(~np.isnan(solution_matrix).any(axis=1))
     res = solution_matrix[~np.isnan(solution_matrix).any(axis=1)]
     
     if len(res) == 0:
+        # print("NO SOLUTION FOUND - JOINT ANGLE VIOLATIONS")
         return False, res
-    # fk_poses = []
-    # for joint_angles in solution_matrix.tolist():
-    #     print('Joint angles:', joint_angles)
-    #     for i, _ in enumerate(joint_angles):
-    #         pose = get_pose_from_T(FK_dh(dh_params, joint_angles, i))
-    #         if i == len(joint_angles)-1:
-    #             print('Link {} pose: {}'.format(i, pose))
-    #             fk_poses.append(pose)
-    #     print()
+
     return True, res.tolist()[0]

@@ -72,6 +72,7 @@ class RXArm(InterbotixRobot):
         self.position_cmd = None
         self.moving_time = 2.0
         self.accel_time = 0.5
+        self.total_time = self.accel_time + self.moving_time
         # Feedback
         self.position_fb = None
         self.velocity_fb = None
@@ -111,10 +112,10 @@ class RXArm(InterbotixRobot):
         self.enable_torque()
         self.moving_time = 2.0
         self.accel_time = 0.5
-        self.angular_v = np.pi/2
+        self.angular_v = np.pi/4
         self.accel_percent = 0.15
         self.set_gripper_pressure(1.0)
-        self.go_to_home_pose(moving_time = self.moving_time, accel_time = self.accel_time, blocking=False)
+        self.go_to_home_pose(moving_time = self.moving_time, accel_time = self.accel_time, blocking=True)
         self.open_gripper()
         self.initialized = True
         return self.initialized
@@ -145,6 +146,8 @@ class RXArm(InterbotixRobot):
 
         # set acceleration time
         self.accel_time = self.moving_time * self.accel_percent
+        
+        self.total_time = self.moving_time + self.accel_time
         # set joint positions
         self.set_joint_positions(joint_positions, moving_time=self.moving_time, accel_time=self.accel_time, blocking=True)
 
@@ -186,6 +189,8 @@ class RXArm(InterbotixRobot):
         """
         return self.position_fb
 
+    def get_total_time(self):
+        return self.total_time
     def get_velocities(self):
         """!
         @brief      Gets the velocities.

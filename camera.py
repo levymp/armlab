@@ -55,12 +55,13 @@ class Camera():
         self.rgb2world = None
         self.color = "None"
         self.colorBases = {
-          'Blue': [150, 60, 0], 
+
           'Red': [70, 60, 100],
           'Green': [100,100,10],
+          'Blue': [150, 60, 0], 
+          'Violet': [118,  52,  59],
           'Black': [50,50,20],
           'Yellow': [20,190,190],
-          'Purple': [118,  52,  59],
           'Pink': [120,70,160],
           'Orange': [25,84,200]}
         """ block info """
@@ -71,12 +72,12 @@ class Camera():
           'Green': {'pixel':[0,0,0]},
           'Black': {'pixel':[0,0,0]},
           'Yellow': {'pixel':[0,0,0]},
-          'Purple': {'pixel':[0,0,0]},
+          'Violet': {'pixel':[0,0,0]},
           'Pink': {'pixel':[0,0,0]},
           'Orange': {'pixel':[0,0,0]}}
         # get work station dimensions and find all world coordinates of each april tag
         df = pd.read_csv('dimensions.csv', index_col=0).T
-        tableDimensions = df.iloc[station]
+        tableDimensions = df.iloc[station-1]
         self.tag_locations = self.set_tag_locations(tableDimensions)
 
 
@@ -107,7 +108,7 @@ class Camera():
       w_tags = w_tags * .001
 
       w_tags[3,:] = 1
-
+      
 
       return w_tags
       
@@ -117,6 +118,7 @@ class Camera():
         """!
         @brief      Process a video frame
         """
+        cv2.drawContours(self.VideoFrame, self.block_contours, -1, (255,0,255))
         #cv2.putText(self.VideoFrame, self.color, (self.block_detections[0],self.block_detections[1]), cv2.FONT_HERSHEY_SIMPLEX, .5, (255,255,255), 1)
         for c in self.colorBases:
           blockPixel = self.blockState[c]['pixel']
@@ -245,11 +247,11 @@ class Camera():
       # print("TAG MDOEL", tag_model_points)
 
       relative_positions = self.tag_locations
-      model_points = relative_positions.T[:,:3]
+      model_points = np.asarray(relative_positions.T[:,:3])
 
       print("MODEL POINTS", model_points)
       # pixel -> camera
-      (success, r_vec, t_vec) = cv2.solvePnP(model_points, tag_image_points, self.intrinsic_matrix, self.distortion)
+      (success, r_vec, t_vec) = cv2.solvePnP(model_points, tag_image_points, self.intrinsic_matrix, self.distortion, cv2.SOLVEPNP_ITERATIVE)
 
       for tag in tags:
             print(tag['position'])
@@ -311,18 +313,12 @@ class Camera():
       
       self.cameraCalibrated = True
 
-      # for tag_id, tag in enumerate(tags):
-      #   print('TAG ', tag_id)
-      #   world_loc = self.pointToWorld(tag['pixel'])
-      #   self.rgb2world = new_rotation
-      #   world_loc_2 = self.pointToWorld(tag['pixel'])  
-      #   self.rgb2world = rgb_copy
-      #   print('ORIGINAL CAL:')
-      #   print(world_loc * 1000)
-      #   print('NEW CAL:')
-      #   print(world_loc_2 * 1000)
-      #   print('DIFFERENCE')
-      #   print((world_loc - world_loc_2)*1000)
+      for tag_id, tag in enumerate(tags):
+        print('TAG ', tag_id)
+        self.rgb2world = new_rotation
+        world_loc = self.pointToWorld(tag['pixel'])  
+        print('TAG CAL:')
+        print(world_loc * 1000)
 
       #   print('------------------------------------------------')
       #   print('------------------------------------------------')
@@ -377,7 +373,7 @@ class Camera():
 
         # calculate the camera frame 4x1
         cameraframe = depth*np.matmul(np.linalg.inv(self.intrinsic_matrix), pt)
-        cameraframe[2] = depth
+        #cameraframe[2] = depth
         cameraframe = np.vstack((cameraframe, np.array([1])))
         
         # calculate the world frame
@@ -410,7 +406,6 @@ class Camera():
             self.blockState[color]['pixel'] = [int(mc[0]),int(mc[1]), depthimg[int(mc[1]),int(mc[0])]]
             self.blockState[color]['position'] = self.pointToWorld(self.blockState[color]['pixel'])
     
-        print(self.blockState)
 
       # TODO
     # rank all takes in all blocks and outputs 

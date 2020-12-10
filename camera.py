@@ -20,6 +20,7 @@ from copy import copy
 import os
 import pandas as pd
 from kinematics import clamp
+from collections import OrderedDict
 
 class Camera():
     """!
@@ -54,15 +55,14 @@ class Camera():
         self.tag_1_wf_pose = np.array([[-.1416], [0], [-.06691], [0]])
         self.rgb2world = None
         self.color = "None"
-        self.colorBases = {
-          'Black': [50,50,20],
-          'Red': [70, 60, 100],
-          'Orange': [25,84,200],
-          'Yellow': [20,190,190],
-          'Green': [100,100,10],
-          'Blue': [150, 60, 0], 
-          'Violet': [118,  52,  59],
-          'Pink': [120,70,160]}
+        self.colorBases = OrderedDict([('Black', [90, 60, 30]),
+                                       ('Red', [70, 60, 100]),
+                                       ('Orange', [25,84,200]),
+                                       ('Yellow', [20,190,160]),
+                                       ('Green', [100,100,20]),
+                                       ('Blue', [150, 60, 0]),
+                                       ('Violet', [118,  52,  59]),
+                                       ('Pink', [120,60,170])])
         """ block info """
         self.block_contours = np.array([])
         self.block_detections = np.array([0,0])
@@ -315,6 +315,8 @@ class Camera():
       
       self.cameraCalibrated = True
 
+      # allWithinTol = True
+      # tol = .02
       for tag_id, tag in enumerate(tags):
         print('TAG ', tag_id)
         self.rgb2world = new_rotation
@@ -322,6 +324,13 @@ class Camera():
         print('TAG CAL:')
         print(world_loc * 1000)
 
+        # print(world_loc.T[0][:2])
+        # print(model_points[tag_id])
+        # if abs(world_loc.T[0][:3] - model_points[tag_id]) > tol:
+        #   allWithinTol = False
+      
+      # if allWithinTol:
+      #   print("TAGS CALIBRATED")
       #   print('------------------------------------------------')
       #   print('------------------------------------------------')
       self.rgb2world = new_rotation
@@ -390,7 +399,8 @@ class Camera():
         rgbimg = self.VideoFrame
         depthimg = self.DepthFrameRaw
         h,w,c = rgbimg.shape
-        mask = cv2.inRange(depthimg, (0), (950))
+        mask = cv2.inRange(depthimg, (0), (940))
+        found = [""]
         for i in range(h):
               for j in range(w):
                     self.MaskFrame[i,j,0] = mask[i,j]
@@ -407,10 +417,11 @@ class Camera():
           blockside1 = math.sqrt((newbox[0][0]-newbox[1][0])**2+(newbox[0][1]-newbox[1][1])**2) 
           blockside2 = math.sqrt((newbox[2][0]-newbox[1][0])**2+(newbox[2][1]-newbox[1][1])**2) 
           if (blockside1 > 10) & (blockside1 < 40) & (blockside2 > 10) & (blockside2 < 40):
+            found = np.hstack((found, color))
             mcs = np.vstack((mcs, mc))
             self.blockState[color]['pixel'] = [int(mc[0]),int(mc[1]), depthimg[int(mc[1]),int(mc[0])]]
             self.blockState[color]['position'] = self.pointToWorld(self.blockState[color]['pixel'])
-    
+        #print(found)
 
       # TODO
     # rank all takes in all blocks and outputs 
@@ -509,7 +520,7 @@ class Camera():
         
         minnorm = 1000
         colorName = "None"
-
+        #print("color value", avgc)
         for c in self.colorBases:
               #print(np.linalg.norm(np.array(self.colorBases[c]) - avgc))
               if np.linalg.norm(np.array(self.colorBases[c] - avgc)) < minnorm:

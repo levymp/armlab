@@ -166,8 +166,8 @@ class StateMachine():
             return False
         
         # MAANUAL TUNE DONT FORGET TO CHANGE
-        joint_angles1[0] -= 4*np.pi/180
-        joint_angles2[0] -= 4*np.pi/180
+        #joint_angles1[0] -= 4*np.pi/180
+        #joint_angles2[0] -= 4*np.pi/180
 
         # set waypoints
         self.waypoints = [joint_angles1, joint_angles1, joint_angles2, joint_angles1]
@@ -179,8 +179,8 @@ class StateMachine():
     def place(self, point):
         found = False
         i = 0
-        while not found and i <= 1:
-            goal_pose1 = [point[0], point[1], point[2] + .08, self.phi]
+        while not found and i <= 0:
+            goal_pose1 = [point[0], point[1], point[2] + .1, self.phi]
             dx =  self.camera.block_contours[0][2][0] - self.camera.block_contours[0][1][0]
             dy =  self.camera.block_contours[0][2][1] - self.camera.block_contours[0][1][1]
 
@@ -189,7 +189,8 @@ class StateMachine():
             success1, joint_angles1 = IK_geometric(self.rxarm.dh_params, goal_pose1, t5[0]) 
             
             # grab block
-            goal_pose2 = [point[0], point[1], point[2] + 0.038, self.phi]
+            # changed from .038 to .04
+            goal_pose2 = [point[0], point[1], point[2] + 0.032, self.phi]
             success2, joint_angles2 = IK_geometric(self.rxarm.dh_params, goal_pose2, t5[0])
 
             if not (success1 and success2):
@@ -204,9 +205,9 @@ class StateMachine():
         else:
             found = True
 
-        
-        joint_angles1[0] -= 4.0*np.pi/180
-        joint_angles2[0] -= 4.0*np.pi/180
+        # MAANUAL TUNE DONT FORGET TO CHANGE
+        #joint_angles1[0] -= 4.0*np.pi/180
+        #joint_angles2[0] -= 4.0*np.pi/180
         self.waypoints = [joint_angles1, joint_angles1, joint_angles2, joint_angles1]
         # print('PLACING AT: {goal_pose2}'.format(goal_pose2=goal_pose2))
         self.gripper_waypoints = [0, 0, 1, 1]
@@ -231,6 +232,7 @@ class StateMachine():
         
         # save state
         self.waypoints.append(tmp.tolist())
+
         # save gripper state
         self.gripper_waypoints.append(gripper_open)
         

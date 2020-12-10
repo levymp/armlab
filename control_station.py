@@ -4,7 +4,7 @@ Main GUI for Arm lab
 """
 import os
 script_path = os.path.dirname(os.path.realpath(__file__))
-
+from comp2 import comp
 import argparse
 import sys
 import cv2
@@ -105,24 +105,24 @@ class Gui(QMainWindow):
         self.ui.btnUser4.clicked.connect(partial(nxt_if_arm_init, 'execute'))
         
         # # teach
-        # self.ui.btnUser5.setText('Save State Open')
-        # # append state to waypoints list
-        # self.ui.btnUser5.clicked.connect(lambda : self.sm.set_next_state('append_state_open'))
+        self.ui.btnUser5.setText('Save State Open')
+        # append state to waypoints list
+        self.ui.btnUser5.clicked.connect(lambda : self.sm.set_next_state('append_state_open'))
         
-        # # teach
-        # self.ui.btnUser6.setText('Save State Closed')
-        # # append state to waypoints list
-        # self.ui.btnUser6.clicked.connect(lambda : self.sm.set_next_state('append_state_closed'))
+        # teach
+        self.ui.btnUser6.setText('Save State Closed')
+        # append state to waypoints list
+        self.ui.btnUser6.clicked.connect(lambda : self.sm.set_next_state('append_state_closed'))
 
         # Start recording EE
-        self.ui.btnUser5.setText('Begin EE Record')
+        self.ui.btnUser12.setText('Begin EE Record')
         # append state to waypoints list
-        self.ui.btnUser5.clicked.connect(lambda : self.sm.set_next_state('record_ee'))
+        self.ui.btnUser12.clicked.connect(lambda : self.sm.set_next_state('record_ee'))
         
         # End recording EE
-        self.ui.btnUser6.setText('Save EE Record')
-        # append state to waypoints list
-        self.ui.btnUser6.clicked.connect(lambda : self.sm.set_next_state('save_ee'))
+        # self.ui.btnUser6.setText('Save EE Record')
+        # # append state to waypoints list
+        # self.ui.btnUser6.clicked.connect(lambda : self.sm.set_next_state('save_ee'))
 
 
 
@@ -149,8 +149,9 @@ class Gui(QMainWindow):
         self.ui.btnUser11.clicked.connect(lambda : self.camera.detectAll())
 
         # comp 2
-        self.ui.btn_task1.clicked.connect(lambda : self.comp1())
-        self.ui.btn_task2.clicked.connect(lambda : self.comp2())
+        self.ui.btn_task1.clicked.connect(lambda : comp(self.rxarm, self.camera, self.sm, 1))
+        self.ui.btn_task2.clicked.connect(lambda : comp(self.rxarm, self.camera, self.sm, 2))
+        self.ui.btn_task3.clicked.connect(lambda : self.comp3())
 
         # Sliders
         for sldr in self.joint_sliders:
@@ -291,6 +292,152 @@ class Gui(QMainWindow):
         
         return new_coordinates
 
+    def comp3(self):
+        # sleep arm before detecting blocks
+        self.rxarm.sleep()
+        # Detect all blocks
+        time.sleep(5)
+
+        # reset blockstate pixel locations (when running multiple times)
+        self.camera.resetBlockState()
+        
+        # detect all blocks multiple times
+        for i in range(15):
+            self.camera.detectAll()
+        
+        # order that blocks need to be processed
+        colors = self.camera.colorBases.keys()
+        
+        print('WILL PICK IN THIS ORDER:')
+        print(colors)
+        # colors = ['Black', 'Blue', 'Pink']
+        # upper left hand side
+        
+        
+        # where to put first block
+        initial_pixel = [186, 158]
+        initial_coordinates = self.camera.pointToWorld(initial_pixel)
+        
+        # where to put blocks in limbo 
+        destack_pixel = [205, 420]
+        destack_coordinates = self.camera.pointToWorld(destack_pixel)
+
+
+        # initial pixel
+        for id, color in enumerate(colors):
+            # sleep arm before detecting blocks
+            self.rxarm.sleep()
+            # Detect all blocks
+            time.sleep(5)
+            # detect all blocks multiple times
+            for i in range(10):
+                self.camera.detectAll()
+
+            # check if current color has been found 
+            pixel = self.camera.blockState[color]['pixel']
+            
+            # check if current color is not available to be ordered (under a stack)
+            if not pixel[2]:
+                # continue to destack until we see the color
+                while not pixel[2]:
+                    # find color to destack
+                    success, deStackColor = self.getHighestBlock()
+                    print('{color1} NOT FOUND... Destacking {deStackColor1}'.format(color1=color, deStackColor1=deStackColor))
+                    print(self.camera.blockState[deStackColor])
+                    if success:
+                        # get the pixel coordinates 
+                        deStackPixel = self.camera.blockState[deStackColor]['pixel']
+                        # pickup at pixel location
+                        pick = self.pixel2coordinates(deStackPixel)
+                        # place at limbo location
+                        placeCoordinates = self.color2coordinates(deStackColor, colors,
+                                                                destack_coordinates,
+                                                                axis='y')
+                        place = placeCoordinates
+                        
+                        # initialize
+                        self.rxarm.initialize()
+                        time.sleep(5)
+
+                        # pick up and place found block
+                        self.sm.pick(pick)  
+                        time.sleep(10)
+                        self.sm.place(place)
+                        time.sleep(10)
+
+                        # sleep arm before detecting blocks
+                        self.rxarm.sleep()
+                        # Detect all blocks
+                        time.sleep(10)
+                        for i in range(5):
+                            self.camera.detectAll()
+                        self.rxarm.initialize()
+                        time.sleep(5)
+                    print('{color1} STATUS W/DE-STACK'.format(color1=color))
+                    print(self.camera.blockState[color])
+                    # reset pixel
+                    pixel = self.camera.blockState[color]['pixel']
+            
+            # should have desired color exposed to move to correct location
+            if pixel[2] and (not id):
+                # Found first color
+                # go to initial position
+                pick = self.pixel2coordinates(pixel)
+                place = initial_coordinates 
+            else:
+                # go to a specific location (below the last color that was used)
+                pick = self.pixel2coordinates(pixel)
+                # initialize
+                self.rxarm.initialize()
+                time.sleep(4)
+                print('PICKING {color1} AT {loc}'.format(color1=color,loc=pick))
+                # pick up and place in correct location
+                self.sm.pick(pick)
+                time.sleep(10)
+      
+                # find new block positions
+                self.camera.detectAll()
+                time.sleep(0.5)
+                self.camera.detectAll()
+                time.sleep(0.5)
+                self.camera.detectAll()
+                
+                min_dist = 1000000.0
+                min_pix = initial_pixel
+                min_color = ''
+                for key in self.camera.blockState.keys():
+                    pix = self.camera.blockState[key]['pixel']
+                    if pix[2] != 0:
+                        dist = math.sqrt((initial_pixel[0] - pix[0])**2 + (initial_pixel[1] - pix[1])**2)
+                        if dist < min_dist:
+                            min_color = copy(key)
+                            min_pix = copy(pix)
+                            min_dist = dist
+                print('USING {color1} FOUND PIXEL:'.format(color1=min_color))
+
+                # place_pixel = self.camera.blockState[colors[i-1]]['pixel']
+
+                max_pix_radius = 5
+                placed_block = False
+                for i in [0,-1, 1]: #, 2, -2, 3, -3]:
+                    for j in [0, -1, 1]: #, 1, 2, -2, 3, -3]:
+                        if placed_block:
+                            break
+                        for k in range(1, max_pix_radius):
+                            self.camera.last_click = (min_pix[0] + k*i, min_pix[1] + k*j)
+                            self.camera.blockDetector()
+                            placeCords = self.camera.pointToWorld(self.camera.block_detections)
+
+                            if self.sm.place(placeCords) and not placed_block:
+                                print('PLACING {color} BLOCK'.format(color=color))
+                                print('INDEX:', k*i, k*j)
+                                placed_block = True 
+                                break
+            time.sleep(10)
+ 
+        return
+
+
     def comp2(self):
         # sleep arm before detecting blocks
         self.rxarm.sleep()
@@ -410,6 +557,9 @@ class Gui(QMainWindow):
         colors = ['Red', 'Green', 'Blue']
         self.current_state = 'execute'
         # get all block states
+        
+        
+        
         self.camera.detectAll()
         self.camera.detectAll()
         self.camera.detectAll()
@@ -508,7 +658,7 @@ class Gui(QMainWindow):
             # time.sleep(self.rxarm.get_total_time()+1)
             
             # go to initialize state at the end
-            self.sm.next_state = 'initialize_rxarm'
+        self.sm.next_state = 'initialize_rxarm'
 
 
     def directControlChk(self, state):

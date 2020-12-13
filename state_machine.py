@@ -328,7 +328,7 @@ class StateMachine():
                     break
 
                 # self.rxarm.set_positions(joint_positions)
-                self.rxarm.set_joint_positions(joint_positions, moving_time=1.5, accel_time=0.15, blocking=True)
+                self.rxarm.set_joint_positions(joint_positions, moving_time=1.0, accel_time=0.05, blocking=True)
                 # check if we have changed gripper state
                 if prev_gripper_open != gripper_open:
                     # change gripper state to new state

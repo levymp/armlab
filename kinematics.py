@@ -181,10 +181,10 @@ def to_s_matrix(w,v):
 
     @return     { description_of_the_return_value }
     """
-    return np.array([[0,     -w[2],  w[1],   v[0]],
-                    [w[2],  0,      -w[0],  v[1]],
-                    [-w[1], w[0],   0,      v[2]],
-                    [0,      0,     0,      0]])
+    
+    return np.array([[0,      -w[2],  w[1]],
+                     [w[2],   0,      -w[0]],
+                     [-w[1],  w[0],   0]])
 
 
 def IK_2DOF(ok,oz,l2,l3):

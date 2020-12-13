@@ -12,7 +12,7 @@ import numpy as np
 import rospy
 import time
 from functools import partial
-from copy import copy
+from copy import copy, deepcopy
 import math
 
 from PyQt4.QtCore import (QThread, Qt, pyqtSignal, pyqtSlot, QTimer)
@@ -120,9 +120,9 @@ class Gui(QMainWindow):
         self.ui.btnUser12.clicked.connect(lambda : self.sm.set_next_state('record_ee'))
         
         # End recording EE
-        # self.ui.btnUser6.setText('Save EE Record')
-        # # append state to waypoints list
-        # self.ui.btnUser6.clicked.connect(lambda : self.sm.set_next_state('save_ee'))
+        self.ui.btnUser6.setText('Save EE Record')
+        # append state to waypoints list
+        self.ui.btnUser6.clicked.connect(lambda : self.sm.set_next_state('save_ee'))
 
 
 
@@ -152,7 +152,7 @@ class Gui(QMainWindow):
         self.ui.btn_task1.clicked.connect(lambda : comp(self.rxarm, self.camera, self.sm, 1))
         self.ui.btn_task2.clicked.connect(lambda : comp(self.rxarm, self.camera, self.sm, 2))
         self.ui.btn_task3.clicked.connect(lambda : self.comp3())
-
+        self.ui.btn_task5.clicked.connect(lambda : comp(self.rxarm, self.camera, self.sm, 5))
         # Sliders
         for sldr in self.joint_sliders:
             sldr.valueChanged.connect(self.sliderChange)
@@ -194,6 +194,7 @@ class Gui(QMainWindow):
     ### TODO: output the rest of the orientation according to the convention chosen
     @pyqtSlot(list)
     def updateEndEffectorReadout(self, pos):
+        pos = deepcopy(pos[:6])
         self.ui.rdoutX.setText(str("%+.2f mm" % (1000*pos[0])))
         self.ui.rdoutY.setText(str("%+.2f mm" % (1000*pos[1])))
         self.ui.rdoutZ.setText(str("%+.2f mm" % (1000*pos[2])))

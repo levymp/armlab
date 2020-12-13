@@ -12,7 +12,8 @@ class comp(object):
             self.comp1()
         elif comp == 2:
             self.comp2()
-
+        elif comp == 5:
+            self.pos_test()
 
 
 
@@ -24,6 +25,18 @@ class comp(object):
         time.sleep(4)
         self.rxarm.initialize()
         time.sleep(4)
+
+    def pos_test(self):
+        if not self.camera.cameraCalibrated or not self.rxarm.initialized:
+            print('CAMERA/ARM NOT INITIALIZED!')
+            return
+        initial_pixel = [230, 230]
+        initialCords = self.camera.pointToWorld(initial_pixel)
+        # self.sm.record_ee()
+        self.sm.place(initialCords, testing=True)
+        print("Should have placed")
+        
+        return
 
     def comp1(self):
         if not self.camera.cameraCalibrated or not self.rxarm.initialized:

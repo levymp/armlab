@@ -143,7 +143,30 @@ def FK_pox(joint_angles, m_mat, s_lst):
 
     @return     a 4-tuple (x, y, z, phi) representing the pose of the desired link
     """
-    pass
+    T = np.eye(4)
+
+    add_line = np.array([0, 0, 0, 1])
+
+    thetas = joint_angles
+
+    for i, screw_pars in enumerate(s_lst):
+
+        S = skew_mat(screw_pars)
+
+        exp = np.eye(3) + np.sin(thetas[i]) * S + (1 - np.cos(thetas[i])) * np.dot(S, S)
+
+        d = np.dot(np.eye(3) * thetas[i] + (1 - np.cos(thetas[i])) * S +
+                   (thetas[i] - np.sin(thetas[i])) * np.dot(S, S), np.reshape(screw_pars[3:], (3, 1)))
+
+        exp_d_concat = np.concatenate((exp, d), axis=1)
+
+        T_new = np.concatenate(exp_d_concat, add_line)
+
+        T = np.dot(T, T_new)
+
+    T = np.dot(T, m_mat)
+
+    return get_pose_from_T(T)
 
 
 def to_s_matrix(w,v):
@@ -158,7 +181,11 @@ def to_s_matrix(w,v):
 
     @return     { description_of_the_return_value }
     """
-    pass
+    return np.array([[0,     -w[2],  w[1],   v[0]],
+                    [w[2],  0,      -w[0],  v[1]],
+                    [-w[1], w[0],   0,      v[2]],
+                    [0,      0,     0,      0]])
+
 
 def IK_2DOF(ok,oz,l2,l3):
     num = np.square(ok, dtype=np.float64) + np.square(oz, dtype=np.float64) - np.square(l2, dtype=np.float64) - np.square(l3, dtype=np.float64)
@@ -282,3 +309,10 @@ def IK_geometric(dh_params, pose, theta5=0):
         return False, res
 
     return True, res.tolist()[0]
+
+
+def skew_mat(w):
+
+    return np.array([[0,      -w[2],  w[1]],
+                     [w[2],   0,      -w[0]],
+                     [-w[1],  w[0],   0]])

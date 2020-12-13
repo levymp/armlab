@@ -112,7 +112,7 @@ class RXArm(InterbotixRobot):
         self.enable_torque()
         self.moving_time = 2.0
         self.accel_time = 0.5
-        self.angular_v = np.pi/4
+        self.angular_v = np.pi/2
         self.accel_percent = 0.15
         self.set_gripper_pressure(1.0)
         self.go_to_home_pose(moving_time = self.moving_time, accel_time = self.accel_time, blocking=True)

@@ -247,9 +247,7 @@ def IK_geometric(dh_params, pose, theta5=0):
        swapped = True
 
     k = np.sign(x)*np.sqrt((x**2 + y**2)) # length along x-y
-    ok = k - l4*np.cos(phi)
-    ok2 = -ok
-    
+    ok = k - l4*np.cos(phi)    
     oz = z - l4*np.sin(phi)
     
     theta2_s1, theta3_s1, theta2_s2, theta3_s2 = IK_2DOF(ok,oz,l2,l3)
@@ -263,8 +261,8 @@ def IK_geometric(dh_params, pose, theta5=0):
     # theta2_s3, theta3_s3, theta2_s4, theta3_s4 = IK_2DOF(ok2,oz,l2,l2)
     theta4_s1 = phi - clamp(sum([theta2_s1, theta3_s1]))
     theta4_s2 = phi - clamp(sum([theta2_s2, theta3_s2]))
-    theta4_s3 = np.pi - phi - clamp(theta2_s3 + theta3_s3)
-    theta4_s4 = np.pi - phi - clamp(theta2_s4 + theta3_s4)
+    theta4_s3 = np.pi + phi - clamp(theta2_s3 + theta3_s3)
+    theta4_s4 = np.pi + phi - clamp(theta2_s4 + theta3_s4)
 
     theta2_s1 -= t2
     theta2_s2 -= t2

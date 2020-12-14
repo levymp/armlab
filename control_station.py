@@ -743,7 +743,7 @@ def main(args=None):
 ### TODO: Add ability to parse POX config file as well
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument("-c", "--dhconfig", required=False, help="path to DH parameters csv file")
+    ap.add_argument("-c", "--dhconfig", required=True, help="path to DH parameters csv file")
     ap.add_argument("-p", "--poxconfig", required=False, help='path to pox config file')
     ap.add_argument("-s", "--station", required=True, help="GIVE VALUE OF 1-5")
     main(args=vars(ap.parse_args()))

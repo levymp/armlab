@@ -145,10 +145,10 @@ def FK_pox(joint_angles, m_mat, s_lst):
     """
     T = np.eye(4)
 
-    add_line = np.array([[0], [0], [0], [1]])
-
+    # add_line = np.array([[0, 0, 0, 1]])
+    
     thetas = joint_angles
-
+    thetas[1] *= -1
     for i, screw_pars in enumerate(s_lst):
 
         S = skew_mat(screw_pars)
@@ -157,17 +157,16 @@ def FK_pox(joint_angles, m_mat, s_lst):
 
         d = np.dot(np.eye(3) * thetas[i] + (1 - np.cos(thetas[i])) * S +
                    (thetas[i] - np.sin(thetas[i])) * np.dot(S, S), np.reshape(screw_pars[3:], (3, 1)))
-
-        exp_d_concat = np.concatenate((exp, d), axis=1)
-        print(exp_d_concat)
-        print(add_line)
-        T_new = np.concatenate([exp_d_concat, [add_line]])
-
+        
+        # exp_d_concat = np.concatenate((exp, d), axis=1)
+        # exp_d_concat = np.append(exp, d, axis=1)
+        
+        T_new = np.vstack((np.hstack((exp, d)) , np.array([0, 0, 0, 1])))
         T = np.dot(T, T_new)
 
     T = np.dot(T, m_mat)
 
-    return get_pose_from_T(T)
+    return T
 
 
 def to_s_matrix(w,v):

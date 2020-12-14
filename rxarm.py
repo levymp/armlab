@@ -52,7 +52,7 @@ class RXArm(InterbotixRobot):
     """!
     @brief      This class describes a RXArm wrapper class for the rx200
     """
-    def __init__(self, dh_config_file=None):
+    def __init__(self, dh_config_file=None, pox_config_file=None):
         """!
         @brief      Constructs a new instance.
 
@@ -80,11 +80,16 @@ class RXArm(InterbotixRobot):
         # DH Params
         self.dh_params = []
         self.dh_config_file = dh_config_file
+        
         if(dh_config_file is not None):
-            self.dh_params = self.parse_dh_param_file()
+            self.dh_params = self.parse_dh_param_file()    
         #POX params
         self.M_matrix = []
         self.S_list = []
+
+        if(pox_config_file is not None):
+            self.parse_pox_param_file(pox_config_file)
+        
 
     def initialize(self):
         """!
@@ -214,7 +219,17 @@ class RXArm(InterbotixRobot):
 
         @return     The EE pose as [x, y, z, phi] or as needed.
         """
-        T = FK_dh(deepcopy(self.dh_params), self.position_fb, 5)
+
+        if self.dh_config_file is not None:
+            # atleast DH given
+            T = FK_dh(deepcopy(self.dh_params), self.position_fb, 5)
+        elif len(self.M_matrix) > 0:
+            # only pox
+            T = FK_pox(self.position_fb, deepcopy(self.M_matrix), deepcopy(self.S_list))
+        else:
+            # neither config file given
+            return [0,0,0,0,0,0]
+
         position = get_pose_from_T(T)
         angles = get_euler_angles_from_T(T)
         res = []
@@ -233,13 +248,20 @@ class RXArm(InterbotixRobot):
 
         return [0, 0, 0, 0]
 
-    def parse_pox_param_file(self):
+    def parse_pox_param_file(self, pox_param_file):
         """!
         @brief      TODO Parse a PoX config file
 
         @return     0 if file was parsed, -1 otherwise 
         """
-        return -1
+        print("Parsing POX Config file...")
+        self.M_matrix, self.S_list = parse_pox_param_file(pox_param_file)
+
+        if not isinstance(self.M_matrix, bool):
+            print('Parsing POX Config File complete...')
+            return 0
+        else:
+            return -1
 
     def parse_dh_param_file(self):
         print("Parsing DH config file...")

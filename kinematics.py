@@ -145,7 +145,7 @@ def FK_pox(joint_angles, m_mat, s_lst):
     """
     T = np.eye(4)
 
-    add_line = np.array([0, 0, 0, 1])
+    add_line = np.array([[0], [0], [0], [1]])
 
     thetas = joint_angles
 
@@ -159,8 +159,9 @@ def FK_pox(joint_angles, m_mat, s_lst):
                    (thetas[i] - np.sin(thetas[i])) * np.dot(S, S), np.reshape(screw_pars[3:], (3, 1)))
 
         exp_d_concat = np.concatenate((exp, d), axis=1)
-
-        T_new = np.concatenate(exp_d_concat, add_line)
+        print(exp_d_concat)
+        print(add_line)
+        T_new = np.concatenate([exp_d_concat, [add_line]])
 
         T = np.dot(T, T_new)
 

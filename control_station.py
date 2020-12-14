@@ -35,7 +35,7 @@ class Gui(QMainWindow):
     Contains the main function and interfaces between the GUI and functions.
     """
 
-    def __init__(self, station, parent=None, dh_config_file=None):
+    def __init__(self, station, parent=None, dh_config_file=None, pox_config_file=None):
         QWidget.__init__(self,parent)
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
@@ -68,8 +68,8 @@ class Gui(QMainWindow):
         self.camera = Camera(station)
         
         print("Creating rx arm...")
-        if(dh_config_file is not None):
-            self.rxarm = RXArm(dh_config_file=dh_config_file)
+        if((dh_config_file is not None) or (pox_config_file is not None)):
+            self.rxarm = RXArm(dh_config_file=dh_config_file, pox_config_file=pox_config_file)
         else:
             self.rxarm = RXArm()
         print("Done creating rx arm instance.")
@@ -734,7 +734,7 @@ def main(args=None):
     @brief      Starts the GUI
     """
     app = QApplication(sys.argv)
-    app_window = Gui(dh_config_file=args['dhconfig'], station=int(args['station']))
+    app_window = Gui(dh_config_file=args['dhconfig'], station=int(args['station']), pox_config_file=args['poxconfig'])
     app_window.show()
     sys.exit(app.exec_())
 
@@ -744,5 +744,6 @@ def main(args=None):
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument("-c", "--dhconfig", required=False, help="path to DH parameters csv file")
+    ap.add_argument("-p", "--poxconfig", required=False, help='path to pox config file')
     ap.add_argument("-s", "--station", required=True, help="GIVE VALUE OF 1-5")
     main(args=vars(ap.parse_args()))
